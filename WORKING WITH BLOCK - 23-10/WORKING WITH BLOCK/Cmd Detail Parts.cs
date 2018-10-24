@@ -54,7 +54,7 @@ namespace myCustomCmds
         }
 
 
-        //HAM CHUNG:
+        //HAM Poly:
         [CommandMethod("PP")]
         public static void abc()
         {
@@ -83,6 +83,7 @@ namespace myCustomCmds
                 ObjectId myObjId = myCustomFunctions.GetObjectIdByType("POLYLINE,LWPOLYLINE");
 
                 if (myObjId.ToString() == "0") return ;
+                if (myObjId == new ObjectId()) return ;
 
                 Polyline mySection = myObjId.GetObject(OpenMode.ForWrite) as Polyline;
 
@@ -119,21 +120,22 @@ namespace myCustomCmds
                 // Prompt for the start point
                 pPtOpts.Message = "\nPick a point to place CallOut: ";
                 pPtRes = acDoc.Editor.GetPoint(pPtOpts);
-                Point3d ptPositionInsert = pPtRes.Value;
 
                 // Exit if the user presses ESC or cancels the command
                 if (pPtRes.Status == PromptStatus.Cancel) return;
 
+                Point3d ptPositionInsert = pPtRes.Value;
                 // vector move tu tam duong tron goc tới diểm chọn
                 Vector3d myVectorMove = myBasePoint.GetVectorTo(ptPositionInsert);
 
                 myCloneSection.TransformBy(Matrix3d.Displacement(myVectorMove));
 
+
+                // Kiem tra chieu polyline de  of set
                 double PolyArea = myCloneSection.GetArea();
 
                 // if area <0 10*5
                 double offsetDistance = 10 * scaleCurrentDim;
-
 
 
                 if (PolyArea < 0)
@@ -147,15 +149,115 @@ namespace myCustomCmds
                 {
                     acDoc.Editor.WriteMessage("\n{0} : la 1 ten class", myObject.GetRXClass().DxfName);
 
-                    myObject.Layer = "CENTER";
-
                     acBlkTblRec.AppendEntity(myObject);
                     acTrans.AddNewlyCreatedDBObject(myObject, true);
 
                 }
 
+                // Lay cac kich thuoc thong dung
 
                acDoc.Editor.WriteMessage(" \nExtents----{0}:", myCloneSection.GeometricExtents.ToString());
+                // extent dimensions:
+               double deltaX = Math.Abs(myCloneSection.GeometricExtents.MaxPoint.X - myCloneSection.GeometricExtents.MinPoint.X);
+               double deltaY = Math.Abs(myCloneSection.GeometricExtents.MaxPoint.Y - myCloneSection.GeometricExtents.MinPoint.Y);
+
+               double maxDelta = Math.Max(deltaX, deltaY);
+
+               acDoc.Editor.WriteMessage("deltaX: {0}, deltaY: {1}", deltaX, deltaY);
+
+
+
+                // Nhap kich thuoc tam
+               double thickness = 0;
+
+               if (thickness <= 0)
+               {
+                   PromptDoubleOptions pIntOpts = new PromptDoubleOptions("");
+                   pIntOpts.Message = "\nEnter thickness: ";
+                   pIntOpts.DefaultValue = 100;
+
+                   PromptDoubleResult pIntRes = acDoc.Editor.GetDouble(pIntOpts);
+
+                   // Restrict input to positive and non-negative values
+                   pIntOpts.AllowZero = false;
+                   pIntOpts.AllowNegative = false;
+
+                   if (pIntRes == null) return;
+                   if (pIntRes.Value <= 0) return;
+
+                   //Set thickness from input 
+                   thickness = pIntRes.Value;
+               }
+
+
+                // ve duong bao kich thuoc
+
+               if (deltaY >= 2*deltaX) // Ve phuong ngang
+               {
+                   // Ve 1 hinh chieu nhu tren theo mat cat binh thuong
+                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X + scaleCurrentDim * 20, myCloneSection.GeometricExtents.MinPoint.Y, 0);
+
+                   using(Polyline myPlate2d = new Polyline())
+                   {
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X +thickness, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X + thickness, myBasePointPlate.Y + deltaY), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y + deltaY), 0, 0, 0);
+                       myPlate2d.Closed = true;
+
+                       acBlkTblRec.AppendEntity(myPlate2d);
+                       acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+                   }   
+               }
+               else if (deltaX >= 2 * deltaY) // Ve phuong doc
+               {
+                   // Ve 1 hinh chieu nhu tren theo mat cat binh thuong
+                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X, myCloneSection.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 20, 0);
+
+                   using (Polyline myPlate2d = new Polyline())
+                   {
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y + thickness), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X - deltaX, myBasePointPlate.Y + thickness), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X - deltaX, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.Closed = true;
+
+                       acBlkTblRec.AppendEntity(myPlate2d);
+                       acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+                   }
+               }
+               else // Ve ca 2 phuong
+               {
+                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X + scaleCurrentDim * 20, myCloneSection.GeometricExtents.MinPoint.Y, 0);
+
+                   using (Polyline myPlate2d = new Polyline())
+                   {
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X + thickness, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X + thickness, myBasePointPlate.Y + deltaY), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y + deltaY), 0, 0, 0);
+                       myPlate2d.Closed = true;
+
+                       acBlkTblRec.AppendEntity(myPlate2d);
+                       acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+                   }
+
+                   myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X, myCloneSection.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 20, 0);
+
+                   using (Polyline myPlate2d = new Polyline())
+                   {
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y + thickness), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X - deltaX, myBasePointPlate.Y + thickness), 0, 0, 0);
+                       myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X - deltaX, myBasePointPlate.Y), 0, 0, 0);
+                       myPlate2d.Closed = true;
+
+                       acBlkTblRec.AppendEntity(myPlate2d);
+                       acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+                   }
+               }
+
+
 
 
                 acBlkTblRec.AppendEntity(myCloneSection);
@@ -171,6 +273,13 @@ namespace myCustomCmds
             if (a.Y == b.Y)
                 return a.X.CompareTo(b.X);
             return a.Y.CompareTo(b.Y);
+        }
+
+        static int sortByX(Point3d a, Point3d b)
+        {
+            if (a.X == b.X)
+                return a.Y.CompareTo(b.Y);
+            return a.X.CompareTo(b.X);
         }
     }
 }

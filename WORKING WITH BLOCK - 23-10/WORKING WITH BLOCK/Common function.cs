@@ -64,8 +64,66 @@ namespace commonFunctions
             }
             return area;
         }
-    
+
+
+
+        public static List<Point3d> getMinMaxPoint(this Polyline myPolyline)
+        {
+            // lay minpoint cua extent border
+            //Point3d myMinPoint = myPolyline.GeometricExtents.MinPoint;
+            //Point3d myMaxPoint = myPolyline.GeometricExtents.MaxPoint;
+
+            if (myPolyline.NumberOfVertices < 3 || myPolyline.Area <= 0)
+            {
+                Application.ShowAlertDialog("Duong poly khong hop le");
+                return null;
+            }
+
+            List<Point3d> myAllPointOfPoly = new List<Point3d>();
+            List<Point3d> my4Point = new List<Point3d>();
+
+            for (int i = 0; i < myPolyline.NumberOfVertices; i++)
+            {
+                myAllPointOfPoly.Add(myPolyline.GetPoint3dAt(i));
+            }
+
+            // Lay minmax X cua poly
+            myAllPointOfPoly.Sort(sortByX);
+            Point3d myMinPointX = myAllPointOfPoly[0];
+            Point3d myMaxPointX = myAllPointOfPoly[myAllPointOfPoly.Count - 1];
+
+            // Lay minmax Y cua poly
+            myAllPointOfPoly.Sort(sortByY);
+
+            Point3d myMinPoinY = myAllPointOfPoly[0];
+            Point3d myMaxPointY = myAllPointOfPoly[myAllPointOfPoly.Count - 1];
+
+            my4Point.Add(myMinPointX);
+            my4Point.Add(myMaxPointX);
+            my4Point.Add(myMinPoinY);
+            my4Point.Add(myMaxPointY);
+
+            return my4Point;
+        }
+
+        static int sortByY(Point3d a, Point3d b)
+        {
+            if (a.Y == b.Y)
+                return a.X.CompareTo(b.X);
+            return a.Y.CompareTo(b.Y);
+        }
+
+        static int sortByX(Point3d a, Point3d b)
+        {
+            if (a.X == b.X)
+                return a.Y.CompareTo(b.Y);
+            return a.X.CompareTo(b.X);
+        }
+
     }
+
+
+
 
 
     public class myCustomFunctions

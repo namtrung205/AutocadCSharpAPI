@@ -15,11 +15,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-/// This code requires a reference to AcExportLayoutEx.dll:
-//using System.Threading;
-
-
-//using Autodesk.AutoCAD.ExportLayout.Trimmer
+using commonFunctions;
 
 
 namespace myCustomCmds
@@ -50,9 +46,25 @@ namespace myCustomCmds
             // Prompt for the end point
             pPtOpts.Message = "\nEnter the end point of the line: ";
             pPtOpts.UseBasePoint = true;
+            pPtOpts.UseDashedLine = false;
             pPtOpts.BasePoint = ptStart;
             pPtRes = acDoc.Editor.GetPoint(pPtOpts);
             Point3d ptEnd = pPtRes.Value;
+
+            if (pPtRes.Status == PromptStatus.Cancel) return;
+
+
+            Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
+            // Prompt for the end point
+            pPtOpts.Message = "\nPick Side: ";
+            pPtOpts.UseBasePoint = true;
+            pPtOpts.UseDashedLine = true;
+            pPtOpts.BasePoint = ptEnd;
+            pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+            Point3d ptSide = pPtRes.Value;
+
+            bool sidePicked = isLeftOrAbove(ptStart, ptEnd, ptSide);
+
 
             if (pPtRes.Status == PromptStatus.Cancel) return;
 
@@ -80,7 +92,8 @@ namespace myCustomCmds
 
                     double thickness = myInput;
 
-                    if (thickness <= 0)
+
+                    if (thickness == 0)
                     {
                         PromptIntegerOptions pIntOpts = new PromptIntegerOptions("");
                         pIntOpts.Message = "\nEnter thickness: ";
@@ -97,9 +110,13 @@ namespace myCustomCmds
                         thickness = pIntRes.Value;
                     }
 
-
-
                     DBObjectCollection acDbObjColl = acLine.GetOffsetCurves(thickness);
+
+                    if (!sidePicked)
+                    {
+                        acDbObjColl = acLine.GetOffsetCurves(-1*thickness);
+                    }
+
 
                     Point2d P1L1 = acLine.StartPoint.Convert2d(new Plane());
                     Point2d P2L1 = acLine.EndPoint.Convert2d(new Plane());
@@ -129,6 +146,10 @@ namespace myCustomCmds
                     //acPolyLine.AddVertexAt(0, P1L1, 0, 0, 0);
 
                     acPolyLine.Closed = true;
+
+                    //Create layer Dim
+                    CmdLayer.createALayerByName("WOOD BOUNDARY");
+
                     acPolyLine.Layer = "WOOD BOUNDARY";
                     acBlkTblRec.AppendEntity(acPolyLine);
                     acTrans.AddNewlyCreatedDBObject(acPolyLine, true);
@@ -149,6 +170,8 @@ namespace myCustomCmds
                         acHatch.Associative = true;
                         acHatch.AppendLoop(HatchLoopTypes.Outermost, acObjIdColl);
                         acHatch.EvaluateHatch(true);
+                        //Create layer Dim
+                        CmdLayer.createALayerByName("HATCH");
                         acHatch.Layer = "HATCH";
                     }
                 }
@@ -157,6 +180,7 @@ namespace myCustomCmds
 
             }
         }
+
 
 
         [CommandMethod("GV")]
@@ -198,6 +222,14 @@ namespace myCustomCmds
         {
             DrawMDFVarmm(21);
         }
+
+
+
+        private static bool isLeftOrAbove(Point3d POL1, Point3d POL2, Point3d PO)
+        {
+            return ((POL2.X - POL1.X) * (PO.Y - POL1.Y) - (POL2.Y - POL1.Y) * (PO.X - POL1.X)) > 0;
+        }
+
 
     }
 }

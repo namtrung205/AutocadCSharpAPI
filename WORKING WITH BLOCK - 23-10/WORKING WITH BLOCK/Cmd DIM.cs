@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 
 namespace myCustomCmds
 {
-    public class   CmdDim
+    public class  CmdDim
     {
         //NHÓM HÀM DIMSYLE
         public static void ChangeDimStyle(string nameDimStyle)
@@ -60,6 +60,8 @@ namespace myCustomCmds
         [CommandMethod("CDS")]
         public static void ChangeDimStyleByName()
         {
+            CmdLayer.createALayerByName("DIM");
+
             // Get the current document and database
             Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acCurDoc.Database;
@@ -141,6 +143,7 @@ namespace myCustomCmds
         public static void DLICustom()
         {
             //SetLayerCurrent("DIM");
+            CmdLayer.createALayerByName("DIM");
 
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
 
@@ -202,6 +205,8 @@ namespace myCustomCmds
                 //var dim = new RotatedDimension(ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
                 RotatedDimension dim = new RotatedDimension(myRotation, ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
                 //dim.XLine1Point = ptStart;
+
+                
                 dim.Layer = "DIM";
 
                 // Add the new object to Model space and the transaction
@@ -217,6 +222,10 @@ namespace myCustomCmds
         [CommandMethod("D1")]
         public static void mergeDim()
         {
+            //Create layer Dim
+            CmdLayer.createALayerByName("DIM");
+
+
             // Get the current document and database
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
@@ -247,7 +256,7 @@ namespace myCustomCmds
                 SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
 
                 // Request for objects to be selected in the drawing area
-                PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection();
+                PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection(acSelFtr);
 
 
                 // If the prompt status is OK, objects were selected
@@ -311,9 +320,6 @@ namespace myCustomCmds
                             myDimLinePoint = myTempDimLinePoint;
 
 
-
-
-
                             Point3d myPoint1 = myDim.XLine1Point;
                             Point3d myPoint2 = myDim.XLine2Point;
 
@@ -333,12 +339,10 @@ namespace myCustomCmds
                             acDoc.Editor.WriteMessage("Success erase");
                         }
 
-
                         //acDoc.Editor.WriteMessage("typedim: {0}\n", acSSObj.ObjectId.GetObject(OpenMode.ForRead).GetRXClass().Name);
                     }
 
                     //// SortList
-
 
                     if (myRotation < 0.01)
                     {
@@ -390,6 +394,10 @@ namespace myCustomCmds
         [CommandMethod("D2")]
         public static void splitDim()
         {
+            //Create layer Dim
+            CmdLayer.createALayerByName("DIM");
+
+
             // Get the current document and database
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
@@ -962,6 +970,13 @@ namespace myCustomCmds
         /// <param name="myInput"></param>
         public void DimOrthoAuto(string myInput)
         {
+
+            //Create layer Dim
+            CmdLayer.createALayerByName("DIM");
+
+
+
+
             Document acDoc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
             Editor ed = acDoc.Editor;
@@ -1049,6 +1064,8 @@ namespace myCustomCmds
                     {
                         using (DBPoint acDBPoint = new DBPoint(myPoint))
                         {
+                            CmdLayer.createALayerByName("Defpoints");
+
                             acDBPoint.Layer = "Defpoints";
                             // Add the new object to the block table record and the transaction
                             acBlkTblRec.AppendEntity(acDBPoint);
@@ -1212,6 +1229,11 @@ namespace myCustomCmds
 
         public static void autoDimHorizontalNotSelect(List<Point3d> listPoint, Point3d dimPoint)
         {
+            //Create layer Dim
+            CmdLayer.createALayerByName("DIM");
+
+
+
             // Get the current database
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
@@ -1298,6 +1320,12 @@ namespace myCustomCmds
 
         public static void autoDimVerticalNotSelect(List<Point3d> listPoint, Point3d dimPoint)
         {
+
+            //Create layer Dim
+            CmdLayer.createALayerByName("DIM");
+
+
+
             // Get the current database
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
@@ -1329,7 +1357,6 @@ namespace myCustomCmds
                         acRotDim.DimLinePoint = ptDim;
                         acRotDim.DimensionStyle = acCurDb.Dimstyle;
                         acRotDim.Layer = "DIM";
-
 
                         // Add the new object to Model space and the transaction
                         if (Math.Abs(((Point3d)listPoint[i]).Y - ((Point3d)listPoint[i - 1]).Y) > 0.01)
@@ -1384,7 +1411,6 @@ namespace myCustomCmds
 
 
         /// <summary>Sort3Dpoint by X or Y
-        /// 
         /// </summary>
         /// <param name="a"></param>
         /// <param name="b"></param>
