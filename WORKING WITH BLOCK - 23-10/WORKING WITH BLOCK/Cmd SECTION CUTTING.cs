@@ -27,10 +27,15 @@ namespace myCustomCmds
         //HAM CHUNG:
         public static void DrawMDFVarmm(double myInput)
         {
+
+
             // Get the current database and start the Transaction Manager
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
             Application.DocumentManager.MdiActiveDocument.Database.Orthomode = true;
+
+            try
+            {
 
             PromptPointResult pPtRes;
             PromptPointOptions pPtOpts = new PromptPointOptions("");
@@ -78,8 +83,17 @@ namespace myCustomCmds
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
 
                 // Define the new line
                 using (Line acLine = new Line(ptStart, ptEnd))
@@ -178,6 +192,12 @@ namespace myCustomCmds
                 // Commit the changes and dispose of the transaction
                 acTrans.Commit();
 
+            }
+        }
+
+            catch (System.Exception ex)
+            {
+                acDoc.Editor.WriteMessage(ex.Message + "\n" + ex.StackTrace);
             }
         }
 

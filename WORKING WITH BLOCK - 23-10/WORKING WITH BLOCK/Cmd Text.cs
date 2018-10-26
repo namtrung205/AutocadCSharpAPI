@@ -19,8 +19,8 @@ namespace myCustomCmds
 {
     public class CmdText
     {
-        [CommandMethod("CRT")]
-        public static void CreateTitle()
+        [CommandMethod("CTC")]
+        public static void CreateTitleCallout()
         {
             // Get the current document and database
             Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
@@ -67,21 +67,27 @@ namespace myCustomCmds
             }
 
 
-
-
             // Start a transaction
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
 
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
                 // Create a multiline text object
 
@@ -132,6 +138,70 @@ namespace myCustomCmds
 
             }
         }
+
+        //[CommandMethod("CTC")]
+        public static void CreateText(string content,string layerText, Point3d poisitionPlace, double scaleText, double textSize)
+        {
+            // Get the current document and database
+            Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acCurDoc.Database;
+
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
+                // Create a multiline text object
+
+                using (MText acMText = new MText())
+                {
+                    acMText.SetAttachmentMovingLocation(AttachmentPoint.MiddleCenter);
+                    acMText.Location = poisitionPlace;
+                    acMText.Contents = content.ToUpper();
+                    acMText.TextHeight = textSize * scaleText;
+
+                    acMText.Layer = layerText;
+
+                    acBlkTblRec.AppendEntity(acMText);
+                    acTrans.AddNewlyCreatedDBObject(acMText, true);
+                }
+                // Save the changes and dispose of the transaction
+                acTrans.Commit();
+
+            }
+        }
+
+
+        [CommandMethod("CT")]
+
+        public static void CreateTitleDetails()
+        {
+
+            // Get the current document and database
+            Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acCurDoc.Database;
+
+            CreateText("hello Worl", "0", new Point3d(0, 0, 0), acCurDb.GetDimstyleData().Dimscale, acCurDb.Textsize);
+        }
+
 
     }
 }

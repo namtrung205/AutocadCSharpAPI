@@ -70,15 +70,23 @@ namespace myCustomCmds
 
                 using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
                 {
-                    // Open the Block table for read
                     BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
                     acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                     OpenMode.ForRead) as BlockTable;
 
-                    // Open the Block table record Model space for write
-                    BlockTableRecord acBlkTblRec;
-                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                     OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
                     // P3C chứa các điểm tạo polyselect
 
                     Point3dCollection pntCol = new Point3dCollection();
@@ -181,7 +189,7 @@ namespace myCustomCmds
 
                     sendCommand(mycom);
                     //sendCommand("RE\n");
-                    sendCommand("CRT\n");
+                    sendCommand("CTC\n");
                     sendCommand(mycom);
 
                     sendCommand("RE\n");

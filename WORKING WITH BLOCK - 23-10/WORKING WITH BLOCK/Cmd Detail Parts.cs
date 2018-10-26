@@ -67,23 +67,39 @@ namespace myCustomCmds
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
 
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
                 double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
 
 
-                ObjectId myObjId = myCustomFunctions.GetObjectIdByType("POLYLINE,LWPOLYLINE");
+                ObjectId myObjId = myCustomFunctions.GetObjectIdByType("Polyline");
 
                 if (myObjId.ToString() == "0") return ;
                 if (myObjId == new ObjectId()) return ;
+
+
+                string classObject =  myObjId.GetObject(OpenMode.ForRead).GetRXClass().DxfName;
+
+                if (classObject == "POLYLINE" || classObject == "LWPOLYLINE")
+                {
+
+
 
                 Polyline mySection = myObjId.GetObject(OpenMode.ForWrite) as Polyline;
 
@@ -154,6 +170,8 @@ namespace myCustomCmds
 
                 }
 
+
+
                 // Lay cac kich thuoc thong dung
 
                acDoc.Editor.WriteMessage(" \nExtents----{0}:", myCloneSection.GeometricExtents.ToString());
@@ -195,7 +213,7 @@ namespace myCustomCmds
                if (deltaY >= 2*deltaX) // Ve phuong ngang
                {
                    // Ve 1 hinh chieu nhu tren theo mat cat binh thuong
-                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X + scaleCurrentDim * 20, myCloneSection.GeometricExtents.MinPoint.Y, 0);
+                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X + scaleCurrentDim * 30, myCloneSection.GeometricExtents.MinPoint.Y, 0);
 
                    using(Polyline myPlate2d = new Polyline())
                    {
@@ -212,7 +230,7 @@ namespace myCustomCmds
                else if (deltaX >= 2 * deltaY) // Ve phuong doc
                {
                    // Ve 1 hinh chieu nhu tren theo mat cat binh thuong
-                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X, myCloneSection.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 20, 0);
+                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X, myCloneSection.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 30, 0);
 
                    using (Polyline myPlate2d = new Polyline())
                    {
@@ -228,7 +246,7 @@ namespace myCustomCmds
                }
                else // Ve ca 2 phuong
                {
-                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X + scaleCurrentDim * 20, myCloneSection.GeometricExtents.MinPoint.Y, 0);
+                   Point3d myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X + scaleCurrentDim * 30, myCloneSection.GeometricExtents.MinPoint.Y, 0);
 
                    using (Polyline myPlate2d = new Polyline())
                    {
@@ -242,7 +260,7 @@ namespace myCustomCmds
                        acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
                    }
 
-                   myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X, myCloneSection.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 20, 0);
+                   myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X, myCloneSection.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 30, 0);
 
                    using (Polyline myPlate2d = new Polyline())
                    {
@@ -257,15 +275,13 @@ namespace myCustomCmds
                    }
                }
 
-
-
-
                 acBlkTblRec.AppendEntity(myCloneSection);
                 acTrans.AddNewlyCreatedDBObject(myCloneSection, true);
 
                 acTrans.Commit();
             }
 
+        }
         }
 
         static int sortByY(Point3d a, Point3d b)

@@ -8,38 +8,36 @@ using System;
 
 using System.Runtime.InteropServices;
 using Autodesk.AutoCAD.Colors;
-//using AcAp = Autodesk.AutoCAD.ApplicationServices.Application;
 
 using Autodesk.AutoCAD.Windows;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-/// This code requires a reference to AcExportLayoutEx.dll:
-//using System.Threading;
-
-
-//using Autodesk.AutoCAD.ExportLayout.Trimmer
+using commonFunctions;
 
 namespace myCustomCmds
 {
-    public class  CmdDim
+    public class CmdDim
     {
         //NHÓM HÀM DIMSYLE
         public static void ChangeDimStyle(string nameDimStyle)
         {
-            Database db = Application.DocumentManager.MdiActiveDocument.Database;
-            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
-            using (Transaction trans = db.TransactionManager.StartTransaction())
+
+            // Get the current document and database
+            Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acCurDoc.Database;
+
+            using (Transaction trans = acCurDb.TransactionManager.StartTransaction())
             {
-                DimStyleTable DimTabb = (DimStyleTable)trans.GetObject(db.DimStyleTableId,OpenMode.ForRead);
+                DimStyleTable DimTabb = (DimStyleTable)trans.GetObject(acCurDb.DimStyleTableId, OpenMode.ForRead);
                 ObjectId dimId = ObjectId.Null;
 
                 if (!DimTabb.Has(nameDimStyle))
                 {
-                    string warning = "Khong ton tai dimstyle co ten la: " + nameDimStyle;
-                    ed.WriteMessage(warning);
-                    System.Windows.Forms.MessageBox.Show(warning, "Thong bao");
+                    string warning = "\nKhong ton tai dimstyle co ten la: " + nameDimStyle;
+                    acCurDoc.Editor.WriteMessage(warning);
+                    Application.ShowAlertDialog(warning);
                 }
                 else
                 {
@@ -47,18 +45,19 @@ namespace myCustomCmds
 
                     DimStyleTableRecord DimTabbRecord = (DimStyleTableRecord)trans.GetObject(dimId, OpenMode.ForRead);
 
-                    if (DimTabbRecord.ObjectId != db.Dimstyle)
+                    if (DimTabbRecord.ObjectId != acCurDb.Dimstyle)
                     {
-                        db.Dimstyle = DimTabbRecord.ObjectId;
-                        db.SetDimstyleData(DimTabbRecord);
+                        acCurDb.Dimstyle = DimTabbRecord.ObjectId;
+                        acCurDb.SetDimstyleData(DimTabbRecord);
                     }
                 }
 
                 trans.Commit();
+                acCurDoc.Editor.WriteMessage("\nDimstyle " + nameDimStyle + " has been set to current.");
             }
         }
         [CommandMethod("CDS")]
-        public static void ChangeDimStyleByName()
+        public static void ChangeDimStyleByScale()
         {
             CmdLayer.createALayerByName("DIM");
 
@@ -89,6 +88,36 @@ namespace myCustomCmds
             ChangeDimStyle(nameDimStyle);
         
         }
+
+        [CommandMethod("CDO")]
+        public static void ChangeDimStyleByObject()
+        {
+            CmdLayer.createALayerByName("DIM");
+
+            // Get the current document and database
+            Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acCurDoc.Database;
+
+
+            // Chon 1 dim object
+            //Sau do lay thong tin tu dimobject 
+            // set dimcurrent giong dimstyle cua object
+
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+                ObjectId myObjId = myCustomFunctions.GetObjectIdByType("Dimension");
+                //ObjectId myObjId = myCustomFunctions.GetObjectIdByType("ABC,AlignedDimension,ArcDimension,DiametricDimension,LineAngularDimension2,Point3AngularDimension,RadialDimension,RadialDimensionLarge,RotatedDimension");
+                if (myObjId.ToString() == "0") return;
+                if (myObjId == new ObjectId()) return;
+
+                Dimension myDimSelected = myObjId.GetObject(OpenMode.ForRead) as Dimension;
+                string nameOfDimSelected =  myDimSelected.DimensionStyleName;
+
+                ChangeDimStyle(nameOfDimSelected);
+                acTrans.Commit();
+            }
+        }
+
 
         public static void  NewDimStyle(string nameDimSyle,double dimScale)
         {
@@ -196,8 +225,16 @@ namespace myCustomCmds
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
 
                 double myRotation = Math.Atan2(ptStart.Y - ptEnd.Y, ptStart.X - ptEnd.X);
@@ -234,15 +271,23 @@ namespace myCustomCmds
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
 
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
 
                 //Filter selecttion
@@ -407,44 +452,42 @@ namespace myCustomCmds
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
 
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
-
-                //Filter selecttion
-
-                // Create a TypedValue array to define the filter criteria
-                TypedValue[] acTypValAr = new TypedValue[1];
-                acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "DIMENSION"), 0);
-                //acTypValAr.SetValue(new TypedValue((int)DxfCode.LayerName, "0"), 2);
-
-                // Assign the filter criteria to a SelectionFilter object
-                SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
-
-                //PromptEntityOptions 
-
-                PromptEntityOptions acPEO = new Autodesk.AutoCAD.EditorInput.PromptEntityOptions("Chon 1 dim de chia... ");
-
-                // Request for objects to be selected in the drawing area
-                PromptEntityResult myAcPER = acDoc.Editor.GetEntity(acPEO);
+                ObjectId myObjectId = myCustomFunctions.GetObjectIdByType("RotatedDimension,AlignedDimension");
 
                 List<Point3d> myListPointSplit = new List<Point3d>();
                 // If the prompt status is OK, objects were selected
-                if (myAcPER.Status == PromptStatus.OK)
-                {
 
+
+                if (myObjectId == null) return;
+                if (myObjectId.ToString() == "0") return;
+                {
                     //DBObject myAcDim = myAcPER.ObjectId.GetObject(OpenMode.ForWrite);
-                    string typeDimName = myAcPER.ObjectId.GetObject(OpenMode.ForRead).GetRXClass().Name;
+                    string typeDimName = myObjectId.GetObject(OpenMode.ForRead).GetRXClass().Name;
                     if (typeDimName == "AcDbRotatedDimension")
                     {
-                        RotatedDimension myAcDim = myAcPER.ObjectId.GetObject(OpenMode.ForWrite) as RotatedDimension;
+
+                        //DBObject myAcDimOb = myAcPER.ObjectId.GetObject(OpenMode.ForWrite);
+
+                        RotatedDimension myAcDim = new RotatedDimension();
+                        myAcDim = myObjectId.GetObject(OpenMode.ForWrite) as RotatedDimension;
                         // Chon diem de slpit:
                         // Lay thong tin goc xoay
                         double myRotationDimCur = myAcDim.Rotation;
@@ -453,7 +496,6 @@ namespace myCustomCmds
                         // Lay vi tri dim
 
                         Point3d myDimPointLine = myAcDim.DimLinePoint;
-
 
                         // Select a point to split
                         // Prompt for the end point
@@ -470,7 +512,6 @@ namespace myCustomCmds
                         Point3d ptInsertPoint = pPtRes.Value;
 
                         myListPointSplit.Add(ptInsertPoint);
-
 
                         if (pPtRes.Status == PromptStatus.Cancel) return;
 
@@ -496,9 +537,9 @@ namespace myCustomCmds
                                 acRotDim.XLine2Point = myListPointSplit[i];
                                 acRotDim.Rotation = myRotationDimCur;
                                 acRotDim.DimLinePoint = myDimPointLine;
-                                acRotDim.DimensionStyle = acCurDb.Dimstyle;
+                                acRotDim.DimensionStyle = myAcDim.DimensionStyle;
                                 acRotDim.Layer = "DIM";
-
+                                acRotDim.SetDimstyleData(myAcDim.GetDimstyleData());
 
                                 // Add the new object to Model space and the transaction
                                 if (acRotDim.Rotation == 0)
@@ -524,8 +565,60 @@ namespace myCustomCmds
                         // Delete Dim
                         myAcDim.Erase();
                     }
-                    acDoc.Editor.WriteMessage("Object ID: {0}\n", myAcPER.ObjectId);
-                    // neu so luong dim dc chon <2 return
+
+                    if (typeDimName == "AcDbAlignedDimension")
+                    {
+
+                        DBObject myAcDimOb = myObjectId.GetObject(OpenMode.ForWrite);
+
+                        AlignedDimension myAcDim = new AlignedDimension();
+                        myAcDim = myObjectId.GetObject(OpenMode.ForWrite) as AlignedDimension;
+                        // Chon diem de slpit:
+
+                        // Lay vi tri dim
+                        Point3d myDimPointLine = myAcDim.DimLinePoint;
+
+                        // Select a point to split
+                        // Prompt for the end point
+
+                        PromptPointResult pPtRes;
+                        PromptPointOptions pPtOpts = new PromptPointOptions("");
+                        pPtOpts.Message = "\nEnter position dim: ";
+
+                        pPtOpts.UseBasePoint = true;
+                        //pPtOpts.BasePoint = new Point3d((myAcDim.XLine1Point.X + myAcDim.XLine2Point.X) / 2, (myAcDim.XLine1Point.Y + myAcDim.XLine2Point.Y) / 2, myAcDim.XLine1Point.Z);
+                        pPtOpts.BasePoint = myAcDim.XLine1Point;
+                        pPtOpts.UseDashedLine = true;
+                        pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+                        Point3d ptInsertPoint = pPtRes.Value;
+
+                        if (pPtRes.Status == PromptStatus.Cancel) return;
+
+                        myListPointSplit.Add(myAcDim.XLine1Point);
+                        myListPointSplit.Add(ptInsertPoint);
+                        myListPointSplit.Add(myAcDim.XLine2Point);
+
+                        for (int i = 1; i < myListPointSplit.Count; i++)
+                        {
+                            using (RotatedDimension acAlDim = new RotatedDimension())
+                            {
+                                acAlDim.XLine1Point = myListPointSplit[i - 1];
+                                acAlDim.XLine2Point = myListPointSplit[i];
+                                acAlDim.DimLinePoint = myDimPointLine;
+                                acAlDim.Rotation = Math.Atan2(myAcDim.XLine2Point.Y - myAcDim.XLine1Point.Y, myAcDim.XLine2Point.X - myAcDim.XLine1Point.X);
+                                acAlDim.DimensionStyle = myAcDim.DimensionStyle;
+                                acAlDim.Layer = "DIM";
+                                acAlDim.SetDimstyleData(myAcDim.GetDimstyleData());
+
+                                acBlkTblRec.AppendEntity(acAlDim);
+                                acTrans.AddNewlyCreatedDBObject(acAlDim, true);
+
+                            }
+                        }
+                        // Delete Dim
+                        myAcDimOb.Erase();
+
+                    }
                 }
 
                 acTrans.Commit();
@@ -963,7 +1056,6 @@ namespace myCustomCmds
         //}
 
 
-
         /// <summary>
         /// New Commnads 
         /// </summary>
@@ -1003,13 +1095,22 @@ namespace myCustomCmds
                 try
                 {
                     BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
                     acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                     OpenMode.ForRead) as BlockTable;
 
-                    // Open the Block table record Model space for write
-                    BlockTableRecord acBlkTblRec;
-                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                     OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
 
 
                     // kiem tra hinh window select hop le hay khong.
@@ -1241,15 +1342,23 @@ namespace myCustomCmds
             // Start a transaction
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                };
 
                 Point3d ptDim = dimPoint;
 
@@ -1333,15 +1442,23 @@ namespace myCustomCmds
             // Start a transaction
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
 
                 Point3d ptDim = dimPoint;

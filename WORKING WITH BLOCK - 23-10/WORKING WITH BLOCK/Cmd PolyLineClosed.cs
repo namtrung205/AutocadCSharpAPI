@@ -80,15 +80,23 @@ namespace myCustomCmds
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
 
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
                 double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
 
@@ -105,6 +113,8 @@ namespace myCustomCmds
                 if (myPolySelected.Area == 0) return;
 
                 myPolySelected.Closed = true;
+
+                myPolySelected.removePointDup();
 
                 // Pick side to insert
                 // Chọn 1 diem tren man hinh de pick insert
@@ -146,6 +156,12 @@ namespace myCustomCmds
                 List<Point3d> listPointToDim = new List<Point3d>();
                 listPointToDim.Add(minPoint);
                 listPointToDim.Add(maxPoint);
+
+                // Them 2 diem bien 
+                listPointToDim.Add(myPolySelected.GeometricExtents.MinPoint);
+                listPointToDim.Add(myPolySelected.GeometricExtents.MaxPoint);
+
+
 
                 for (int i = 0; i < myPolySelected.NumberOfVertices; i++)
                 {
@@ -310,8 +326,6 @@ namespace myCustomCmds
 
 
 
-
-
         public static void DimPolyLineByObject(Polyline myPolySelected)
         {
             // Get the current document and database
@@ -335,12 +349,21 @@ namespace myCustomCmds
 
                 double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
 
+                // remove duplicate point
+
+                myPolySelected.removePointDup();
 
                 if (myPolySelected.NumberOfVertices < 3) return;
 
                 if (myPolySelected.Area == 0) return;
 
                 myPolySelected.Closed = true;
+
+                //remove 
+
+
+                // PrinExten
+
 
                 //// Pick side to insert
                 //// Chọn 1 diem tren man hinh de pick insert
@@ -358,17 +381,21 @@ namespace myCustomCmds
 
                 List<Point3d> myListPositionDim = new List<Point3d>();
 
-                Point3d pDp1 = new Point3d(myPolySelected.getMinMaxPoint()[0].X - scaleCurrentDim * 10,
+                Point3d pDp1 = new Point3d(Math.Min(myPolySelected.getMinMaxPoint()[0].X - scaleCurrentDim * 10,
+                    myPolySelected.GeometricExtents.MinPoint.X - scaleCurrentDim * 10),
                     myPolySelected.getMinMaxPoint()[0].Y, 0);
 
-                Point3d pDp2 = new Point3d(myPolySelected.getMinMaxPoint()[1].X + scaleCurrentDim * 10,
+                Point3d pDp2 = new Point3d(Math.Max(myPolySelected.getMinMaxPoint()[1].X + scaleCurrentDim * 10,
+                    myPolySelected.GeometricExtents.MaxPoint.X + scaleCurrentDim * 10),
                     myPolySelected.getMinMaxPoint()[1].Y, 0);
 
                 Point3d pDp3 = new Point3d(myPolySelected.getMinMaxPoint()[2].X,
-                    myPolySelected.getMinMaxPoint()[2].Y - scaleCurrentDim * 10, 0);
+                   Math.Min(myPolySelected.getMinMaxPoint()[2].Y - scaleCurrentDim * 10,
+                   myPolySelected.GeometricExtents.MinPoint.Y - scaleCurrentDim * 10), 0);
 
                 Point3d pDp4 = new Point3d(myPolySelected.getMinMaxPoint()[3].X,
-                    myPolySelected.getMinMaxPoint()[3].Y + scaleCurrentDim * 10, 0);
+                    Math.Max(myPolySelected.getMinMaxPoint()[3].Y + scaleCurrentDim * 10,
+                    myPolySelected.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 10), 0);
 
                 myListPositionDim.Add(pDp1);
                 myListPositionDim.Add(pDp2);
@@ -403,6 +430,12 @@ namespace myCustomCmds
                     List<Point3d> listPointToDim = new List<Point3d>();
                     listPointToDim.Add(minPoint);
                     listPointToDim.Add(maxPoint);
+
+
+                    // Them 2 diem bien extent
+                    listPointToDim.Add(myPolySelected.GeometricExtents.MinPoint);
+                    listPointToDim.Add(myPolySelected.GeometricExtents.MaxPoint);
+
 
                     for (int i = 0; i < myPolySelected.NumberOfVertices; i++)
                     {
@@ -441,28 +474,33 @@ namespace myCustomCmds
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
             {
 
-                // Open the Block table for read
                 BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
                 acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
                                                 OpenMode.ForRead) as BlockTable;
 
-                // Open the Block table record Model space for write
-                BlockTableRecord acBlkTblRec;
-                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
                                                 OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
 
                 // Create a TypedValue array to define the filter criteria
                 TypedValue[] acTypValAr = new TypedValue[1];
                 acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "POLYLINE,LWPOLYLINE"), 0);
-                //acTypValAr.SetValue(new TypedValue((int)DxfCode.LayerName, "0"), 2);
 
                 // Assign the filter criteria to a SelectionFilter object
                 SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
                 
-
                 // Request for objects to be selected in the drawing area
                 PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection(acSelFtr);
-
 
                 // If the prompt status is OK, objects were selected
                 if (acSSPrompt.Status == PromptStatus.OK)
@@ -475,6 +513,7 @@ namespace myCustomCmds
                     foreach (SelectedObject acSSObj in acSSet)
                     {
                         Polyline myPolylineItem = acSSObj.ObjectId.GetObject(OpenMode.ForWrite) as Polyline;
+
                         if (myPolylineItem.Area > 0 && myPolylineItem.NumberOfVertices > 2)
                         {
                             myListPolyValid.Add(myPolylineItem);
@@ -494,6 +533,8 @@ namespace myCustomCmds
                 return;
             }
         }
+
+
 
 
 
@@ -518,4 +559,229 @@ namespace myCustomCmds
             return a.X.CompareTo(b.X);
         }
     }
+
+    public class PolylineSegment
+    {
+        [CommandMethod("DAP")]
+        public void InspectPolyline()
+        {
+
+            //Create layer Dim
+            CmdLayer.createALayerByName("DIM");
+
+            var acDoc  = Application.DocumentManager.MdiActiveDocument;
+            var acCurDb = acDoc .Database;
+            var ed = acDoc .Editor;
+
+            var options = new PromptEntityOptions("\nSelect Polyline: ");
+            options.SetRejectMessage("\nSelected object is no a Polyline.");
+            options.AddAllowedClass(typeof(Polyline), true);
+
+            var result = ed.GetEntity(options);
+            if (result.Status == PromptStatus.OK)
+            {
+                // at this point we know an entity have been selected and it is a Polyline
+                using (var acTrans = acCurDb.TransactionManager.StartTransaction())
+                {
+
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+
+                    var pline = (Polyline)acTrans.GetObject(result.ObjectId, OpenMode.ForWrite);
+
+                    //pline.Closed = true;
+
+                    //Xoa cac diem trung nhau
+                    pline.removePointDup();
+
+
+
+                    double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
+
+                    // Kiem tra chieu polyline de  of set
+                    double PolyArea = pline.GetArea();
+
+                    // if area <0 10*5
+                    double offsetDistance = 10 * scaleCurrentDim;
+
+
+                    if (PolyArea < 0)
+                    {
+                        offsetDistance = offsetDistance * -1;
+                    }
+
+
+                    DBObjectCollection myObjectsOffsetOut = pline.GetOffsetCurves(offsetDistance/2);
+                    DBObjectCollection myObjectsOffsetIn = pline.GetOffsetCurves(-1*offsetDistance / 2);
+
+                    if (myObjectsOffsetOut == null)
+                    {
+                        myObjectsOffsetOut = pline.GetOffsetCurves(1);
+                        if (myObjectsOffsetOut == null) return;
+                    }
+
+
+                    //Se co bug o day
+
+                    Polyline myPolyOffsetOut = new Polyline();
+                    foreach (DBObject myObject in myObjectsOffsetOut)
+                    {
+                        myPolyOffsetOut = myObject as Polyline;
+                        break;
+                    }
+
+
+                    // iterte through all segments
+                    for (int i = 0; i < pline.NumberOfVertices; i++)
+                    {
+                        switch (pline.GetSegmentType(i))
+                        {
+                            case SegmentType.Arc:
+                                CircularArc2d arc = pline.GetArcSegment2dAt(i);
+                                Point3d Center = new Point3d(arc.Center.X, arc.Center.Y, 0);
+                                Point3d XlineP1 = new Point3d(arc.StartPoint.X,arc.StartPoint.Y,0);
+                                Point3d XlineP2 = new Point3d(arc.EndPoint.X,arc.EndPoint.Y,0);
+
+                                double R = arc.Radius;
+                                
+                                // Do math
+                                Vector3d vec1 = new Vector3d(XlineP1.X - Center.X, XlineP1.Y - Center.Y, 0);
+                                Vector3d vec2 = new Vector3d(XlineP2.X - Center.X, XlineP2.Y - Center.Y, 0);
+                                Vector3d vecM = vec1.Add(vec2);
+                                Vector3d vecN =  vecM.GetNormal();
+
+
+                                
+                                Point3d middlePoint = new Point3d(Center.X + vecN.X * (R), Center.Y + vecN.Y * (R), 0);
+
+                                Point3d placeDimPoint = new Point3d(Center.X + vecN.X * (R + 10 * scaleCurrentDim/2), Center.Y + vecN.Y * (R + 10 * scaleCurrentDim/2), 0);
+
+                                ed.WriteMessage("trung diem: {0} \n\n", placeDimPoint.ToString());
+
+
+                                string dimtext = "<>";
+                                ObjectId dimstyle = acCurDb.Dimstyle;
+
+                                using (ArcDimension acArcDim = new ArcDimension(Center, XlineP1, XlineP2, placeDimPoint, dimtext, dimstyle))
+                                {
+                                    acArcDim.Layer = "DIM";
+                                    acBlkTblRec.AppendEntity(acArcDim);
+                                    acTrans.AddNewlyCreatedDBObject(acArcDim, true);
+                                }
+
+                                using(RadialDimension acRadDim = new RadialDimension())
+                                {
+                                    acRadDim.Center = Center;
+                                    acRadDim.ChordPoint = middlePoint;
+                                    acRadDim.TextPosition = new Point3d((middlePoint.X + Center.X) / 2, (middlePoint.Y + Center.Y) / 2, 0);
+                                    acRadDim.DimensionStyle = dimstyle;
+                                    acRadDim.Layer = "DIM";
+
+
+                                    acBlkTblRec.AppendEntity(acRadDim);
+                                    acTrans.AddNewlyCreatedDBObject(acRadDim, true);
+                                }
+
+
+                                break;
+                            case SegmentType.Line:
+                                // DimAlign
+                                LineSegment2d line = pline.GetLineSegment2dAt(i);
+
+                                if (i < pline.NumberOfVertices)
+                                {
+                                    if (pline.GetSegmentType(i + 1) == SegmentType.Line)
+                                    {
+
+                                        LineSegment2d line2 = pline.GetLineSegment2dAt(i + 1);
+                                        using (LineAngularDimension2 myAngular = new LineAngularDimension2())
+                                        {
+                                            myAngular.XLine1Start = new Point3d(line.StartPoint.X, line.StartPoint.Y, 0);
+                                            myAngular.XLine1End = new Point3d(line.EndPoint.X, line.EndPoint.Y, 0);
+                                            myAngular.XLine2Start = new Point3d(line2.StartPoint.X, line2.StartPoint.Y, 0);
+                                            myAngular.XLine2End = new Point3d(line2.EndPoint.X, line2.EndPoint.Y, 0);
+                                            myAngular.ArcPoint = PointFunction.getSymmetryPoint(myPolyOffsetOut.GetPoint3dAt(i + 1), pline.GetPoint3dAt(i + 1));
+                                            myAngular.DimensionStyle = acCurDb.Dimstyle;
+                                            myAngular.Layer = "DIM";
+
+
+                                            acBlkTblRec.AppendEntity(myAngular);
+                                            acTrans.AddNewlyCreatedDBObject(myAngular, true);
+                                        }
+                                    }
+
+                                }
+
+                                //ABS vector
+                                Vector2d absVector = new Vector2d(Math.Abs(line.Direction.X), Math.Abs(line.Direction.Y));
+
+                                if (absVector == new Vector2d(0, 1) || absVector == new Vector2d(1, 0)) break;
+
+
+                                //Dime line by alight line if line not ortho
+                                using (AlignedDimension myDimAlign = new AlignedDimension())
+                                {
+                                    myDimAlign.XLine1Point = new Point3d(line.StartPoint.X, line.StartPoint.Y,0);
+                                    myDimAlign.XLine2Point = new Point3d(line.EndPoint.X, line.EndPoint.Y, 0);
+                                    myDimAlign.DimLinePoint = myPolyOffsetOut.GetPoint3dAt(i);
+                                    myDimAlign.Layer = "DIM";
+
+
+                                    acBlkTblRec.AppendEntity(myDimAlign);
+                                    acTrans.AddNewlyCreatedDBObject(myDimAlign, true);
+
+                                }
+                                
+                                break;
+                            default:
+                                LineSegment2d line0 = pline.GetLineSegment2dAt(i-1);
+
+                                if (pline.GetSegmentType(0) == SegmentType.Line && pline.GetSegmentType(i - 1) == SegmentType.Line)
+                                {
+                                    LineSegment2d line00 = pline.GetLineSegment2dAt(0);
+                                    using (LineAngularDimension2 myAngular = new LineAngularDimension2())
+                                    {
+                                        myAngular.XLine1Start = new Point3d(line0.StartPoint.X, line0.StartPoint.Y, 0);
+                                        myAngular.XLine1End = new Point3d(line0.EndPoint.X, line0.EndPoint.Y, 0);
+                                        myAngular.XLine2Start = new Point3d(line00.StartPoint.X, line00.StartPoint.Y, 0);
+                                        myAngular.XLine2End = new Point3d(line00.EndPoint.X, line00.EndPoint.Y, 0);
+                                        myAngular.ArcPoint = PointFunction.getSymmetryPoint(myPolyOffsetOut.GetPoint3dAt(0), pline.GetPoint3dAt(0));
+                                        myAngular.DimensionStyle = acCurDb.Dimstyle;
+                                        myAngular.Layer = "DIM";
+
+
+                                        acBlkTblRec.AppendEntity(myAngular);
+                                        acTrans.AddNewlyCreatedDBObject(myAngular, true);
+                                    }
+                                }
+
+
+
+                                ed.WriteMessage("\n\n Segment {0} : zero length segment",i);
+                                break;
+                        }
+                    }
+                    acTrans.Commit();
+                }
+                //Application.DisplayTextScreen =;
+            }
+        }
+    }
+    
 }

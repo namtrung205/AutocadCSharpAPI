@@ -1,6 +1,9 @@
 ﻿using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+
+
+
 using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.EditorInput;
 using System.Collections.Generic;
@@ -16,6 +19,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using System.Threading;
+using System.Reflection;
 
 
 
@@ -64,7 +68,6 @@ namespace commonFunctions
             }
             return area;
         }
-
 
 
         public static List<Point3d> getMinMaxPoint(this Polyline myPolyline)
@@ -120,17 +123,34 @@ namespace commonFunctions
             return a.X.CompareTo(b.X);
         }
 
+        public static Polyline removePointDup (this Polyline myPolyline)
+        {
+            myPolyline.Closed = true;
+
+
+            // remove vertex dupplicate
+
+            for (int i = 0; i < myPolyline.NumberOfVertices - 1; i++)
+            {
+                if (myPolyline.GetPoint3dAt(i) == myPolyline.GetPoint3dAt(i + 1))
+                {
+                    myPolyline.RemoveVertexAt(i + 1);
+                    i--;
+                }
+
+            }
+            return myPolyline;
+        }
+    
+    
     }
-
-
-
 
 
     public class myCustomFunctions
     {
         //HAM CHUNG:
 
-        public static Object SelectPoint(Point3d lastPoint)
+        public static Object SelectPoint(Point3d lastPoint, string Prompt)
         {
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;
@@ -138,7 +158,7 @@ namespace commonFunctions
 
             PromptPointResult pPtRes;
             PromptPointOptions pPtOpts = new PromptPointOptions("");
-            pPtOpts.Message = "\nPick Point on Screen: ";
+            pPtOpts.Message = "\n" + Prompt;
             pPtOpts.BasePoint = lastPoint;
 
             if (lastPoint == new Point3d(0,0,0))
@@ -164,9 +184,8 @@ namespace commonFunctions
         {
             //Database acCurDb = acDoc.Database;
 
-
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
-
+            
 
             // Create a TypedValue array to define the filter criteria
             TypedValue[] acTypValAr = new TypedValue[1];
@@ -177,7 +196,68 @@ namespace commonFunctions
 
             //PromptEntityOptions 
             PromptEntityOptions acPEO = new Autodesk.AutoCAD.EditorInput.PromptEntityOptions("");
-            acPEO.Message = "Pick a " + typeObject + ": ";
+            acPEO.Message = "\nPick a " + typeObject + ": ";
+
+            List<string> myTypeAllow = typeObject.Split(',').ToList();
+
+            acPEO.SetRejectMessage("\nOnly accept..." + typeObject);
+
+            List<string> fullListType = GetClasses();
+
+            string typeNameItem;
+
+            //Test
+            List<Type> acceptType = new List<Type>();
+
+            Assembly aCadAssembly = Assembly.LoadFile(@"C:\Program Files\Autodesk\AutoCAD 2015\acdbmgd.dll");
+            foreach (string Item in myTypeAllow)
+            {
+
+                // Kiem tra cac the loai co khop khong
+                var match = fullListType.FirstOrDefault(stringToCheck => stringToCheck.Contains(Item));
+
+                if (match != null)
+                {
+                    typeNameItem = "Autodesk.AutoCAD.DatabaseServices." + Item + ", acdbmgd";
+
+                    Type myType = Type.GetType(typeNameItem);
+
+
+                    // Kiem tra type dang chon co la class abstract ko..
+
+                    if (myType.IsAbstract)
+                    {
+
+                        List<Type> derivedTypes = VType.GetDerivedTypes(myType,aCadAssembly);
+                        
+                        //Check type in deriveedTypes co la abstract class ko? ko thif them vao
+                        foreach (Type subType in derivedTypes)
+                        {
+                            if (!subType.IsAbstract)
+                            {
+                                acceptType.Add(subType);
+                                acPEO.AddAllowedClass(subType, true);
+                            }
+                            else
+                            {
+                                continue;
+                            }
+                        }
+
+                    }
+
+                    else
+                    {
+                        acPEO.AddAllowedClass(myType, true);
+                    }
+                }
+                else
+                {
+                    continue;
+                }
+
+            }
+
             // Request for objects to be selected in the drawing area
             PromptEntityResult myAcPER = acDoc.Editor.GetEntity(acPEO);
                 
@@ -189,7 +269,93 @@ namespace commonFunctions
             return new ObjectId();
         }
 
+        public static List<string>  GetClasses()
+        {
+            Assembly testAssembly = Assembly.LoadFile(@"C:\Program Files\Autodesk\AutoCAD 2015\acdbmgd.dll");
+            string nameSpace = "Autodesk.AutoCAD.DatabaseServices";
 
+            List<string> namespacelist = new List<string>();
+            List<string> classlist = new List<string>();
+
+            foreach (Type type in testAssembly.GetTypes())
+            {
+                if (type.Namespace == nameSpace)
+                    namespacelist.Add(type.Name);
+            }
+
+            foreach (string classname in namespacelist)
+            {
+
+                classlist.Add(classname);
+            }
+
+            return classlist;
+            
+        }
+
+    }
+
+    public static class VType
+    {
+        public static List<Type> GetDerivedTypes(Type baseType, Assembly assembly)
+        {
+            // Get all types from the given assembly
+            Type[] types = assembly.GetTypes();
+            List<Type> derivedTypes = new List<Type>();
+
+            for (int i = 0, count = types.Length; i < count; i++)
+            {
+                Type type = types[i];
+                if (VType.IsSubclassOf(type, baseType))
+                {
+                    // The current type is derived from the base type,
+                    // so add it to the list
+                    derivedTypes.Add(type);
+                }
+            }
+
+            return derivedTypes;
+        }
+
+        public static bool IsSubclassOf(Type type, Type baseType)
+        {
+            if (type == null || baseType == null || type == baseType)
+                return false;
+
+            if (baseType.IsGenericType == false)
+            {
+                if (type.IsGenericType == false)
+                    return type.IsSubclassOf(baseType);
+            }
+            else
+            {
+                baseType = baseType.GetGenericTypeDefinition();
+            }
+
+            type = type.BaseType;
+            Type objectType = typeof(object);
+
+            while (type != objectType && type != null)
+            {
+                Type curentType = type.IsGenericType ?
+                    type.GetGenericTypeDefinition() : type;
+                if (curentType == baseType)
+                    return true;
+
+                type = type.BaseType;
+            }
+
+            return false;
+        }
+    }
+
+
+    public static class PointFunction
+    {
+        public static Point3d getSymmetryPoint(Point3d point, Point3d center)
+        {
+            return new Point3d(center.X * 2 - point.X, center.Y * 2 - point.Y, center.Z * 2 - point.Z);
+        }
     }
 
 }
