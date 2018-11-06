@@ -20,6 +20,7 @@ using System.Threading.Tasks;
 
 using System.Threading;
 using System.Reflection;
+using System.IO;
 
 
 
@@ -209,7 +210,22 @@ namespace commonFunctions
             //Test
             List<Type> acceptType = new List<Type>();
 
-            Assembly aCadAssembly = Assembly.LoadFile(@"C:\Program Files\Autodesk\AutoCAD 2015\acdbmgd.dll");
+
+            string myPathDll = @"C:\Program Files\Autodesk\AutoCAD 2015\acdbmgd.dll";
+
+            for (int i = 2013; i < 2021; i++)
+            {
+                string tempPathDll = string.Format(@"C:\Program Files\Autodesk\AutoCAD {0}\acdbmgd.dll", i);
+
+                if (File.Exists(tempPathDll))
+                {
+                    myPathDll = tempPathDll;
+                    break;
+                }
+                continue;
+            }
+
+            Assembly aCadAssembly = Assembly.LoadFile(myPathDll);
             foreach (string Item in myTypeAllow)
             {
 
@@ -269,9 +285,23 @@ namespace commonFunctions
             return new ObjectId();
         }
 
-        public static List<string>  GetClasses()
+        public static List<string>  GetClasses() 
         {
-            Assembly testAssembly = Assembly.LoadFile(@"C:\Program Files\Autodesk\AutoCAD 2015\acdbmgd.dll");
+            string myPathDll = @"C:\Program Files\Autodesk\AutoCAD 2015\acdbmgd.dll";
+
+            for (int i = 2013; i < 2021; i++)
+            {
+                string tempPathDll =  string.Format(@"C:\Program Files\Autodesk\AutoCAD {0}\acdbmgd.dll", i);
+
+                if (File.Exists(tempPathDll))
+                {
+                    myPathDll = tempPathDll;
+                    break;
+                }
+                continue;
+            }
+
+            Assembly testAssembly = Assembly.LoadFile(myPathDll);
             string nameSpace = "Autodesk.AutoCAD.DatabaseServices";
 
             List<string> namespacelist = new List<string>();

@@ -27,7 +27,6 @@ namespace myCustomCmds
     public class CmdDetailParts
     {
 
-        [CommandMethod("Test")]
         public void ClockwisePolyline()
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -98,8 +97,6 @@ namespace myCustomCmds
 
                 if (classObject == "POLYLINE" || classObject == "LWPOLYLINE")
                 {
-
-
 
                 Polyline mySection = myObjId.GetObject(OpenMode.ForWrite) as Polyline;
 

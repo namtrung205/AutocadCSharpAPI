@@ -15,7 +15,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-using System.Text;
+
 using System.Collections;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;

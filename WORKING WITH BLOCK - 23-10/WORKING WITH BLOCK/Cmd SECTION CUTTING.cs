@@ -162,9 +162,9 @@ namespace myCustomCmds
                     acPolyLine.Closed = true;
 
                     //Create layer Dim
-                    CmdLayer.createALayerByName("WOOD BOUNDARY");
+                    //CmdLayer.createALayerByName("WOOD BOUNDARY");
 
-                    acPolyLine.Layer = "WOOD BOUNDARY";
+                    //acPolyLine.Layer = "WOOD BOUNDARY";
                     acBlkTblRec.AppendEntity(acPolyLine);
                     acTrans.AddNewlyCreatedDBObject(acPolyLine, true);
                     // Adds the circle to an object id array
@@ -180,13 +180,15 @@ namespace myCustomCmds
                         // Set the properties of the hatch object
                         // Associative must be set after the hatch object is appended to the 
                         // block table record and before AppendLoop
-                        acHatch.SetHatchPattern(HatchPatternType.PreDefined, "HWEND6N0");
+
+                        acHatch.SetHatchPattern(HatchPatternType.PreDefined, "ANSI36");
                         acHatch.Associative = true;
+                        acHatch.PatternScale = 2;
                         acHatch.AppendLoop(HatchLoopTypes.Outermost, acObjIdColl);
                         acHatch.EvaluateHatch(true);
-                        //Create layer Dim
-                        CmdLayer.createALayerByName("HATCH");
-                        acHatch.Layer = "HATCH";
+                        //Create layer Hatch
+                        //CmdLayer.createALayerByName("HATCH");
+                        //acHatch.Layer = "HATCH";
                     }
                 }
                 // Commit the changes and dispose of the transaction

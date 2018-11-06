@@ -1328,6 +1328,350 @@ namespace myCustomCmds
             DimOrthoAuto("O");
         }
 
+
+        /// <summary>
+        /// New Commnads 
+        /// </summary>
+        /// <param name="myInput"></param>
+        public void DimOrthoAutoHole(string myInput)
+        {
+
+            //Create layer Dim
+            CmdLayer.createALayerByName("DIM");
+
+
+            Document acDoc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+            Editor ed = acDoc.Editor;
+
+            List<Point3d> points = new List<Point3d>();
+
+            PromptPointOptions ppo = new PromptPointOptions("\n\tSpecify a first corner: ");
+
+            PromptPointResult ppr = ed.GetPoint(ppo);
+
+            if (ppr.Status != PromptStatus.OK) return;
+
+            PromptCornerOptions pco = new PromptCornerOptions("\n\tOther corner: ", ppr.Value);
+            pco.UseDashedLine = true;
+            PromptPointResult pcr = ed.GetCorner(pco);
+            if (pcr.Status != PromptStatus.OK) return;
+
+            Point3d pt1 = ppr.Value;
+
+            Point3d pt2 = pcr.Value;
+
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+                try
+                {
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+
+                    // kiem tra hinh window select hop le hay khong.
+                    if (pt1.X == pt2.X || pt1.Y == pt2.Y)
+                    {
+                        ed.WriteMessage("\nInvalid point specification");
+                        return;
+                    }
+
+                    PromptSelectionResult res;
+                    res = ed.SelectCrossingWindow(pt1, pt2);
+
+
+                    if (res.Status != PromptStatus.OK)
+                        return;
+                    SelectionSet sset = res.Value;
+
+                    List<Point3d> myListPoint1 = new List<Point3d>();
+                    foreach (var objID in sset.GetObjectIds())
+                    {
+                        string className = objID.ObjectClass.DxfName;
+                        //Application.DocumentManager.MdiActiveDocument.Editor.WriteMessage("\n TYPE: {0}\n", className);
+
+                        // Neu Object class la line hoac polyline, lay point them vao list point:
+                        if (className == "LINE")
+                        {
+                            // Convert objID to Line
+                            Line myLine = objID.GetObject(OpenMode.ForRead) as Line;
+                            Point3d endPoint = myLine.EndPoint;
+                            myListPoint1.Add(myLine.EndPoint);
+                            myListPoint1.Add(myLine.StartPoint);
+                        }
+                        // Neu Object class polyline, lay point them vao list point:
+                        if (className == "LWPOLYLINE")
+                        {
+                            // Convert objID to Line
+                            Polyline myPoly = objID.GetObject(OpenMode.ForRead) as Polyline;
+                            int vn = myPoly.NumberOfVertices;
+
+                            // Get all Point from Polyline:
+                            for (int i = 0; i < vn; i++)
+                            {
+                                Point3d pt = new Point3d(myPoly.GetPoint2dAt(i).X, myPoly.GetPoint2dAt(i).Y, 0);
+                                myListPoint1.Add(pt);
+                            }
+                        }
+                    }
+
+                    // Insert DBPoint at Point of listPoint
+
+                    foreach (Point3d myPoint in myListPoint1)
+                    {
+                        using (DBPoint acDBPoint = new DBPoint(myPoint))
+                        {
+                            CmdLayer.createALayerByName("Defpoints");
+
+                            acDBPoint.Layer = "Defpoints";
+                            // Add the new object to the block table record and the transaction
+                            acBlkTblRec.AppendEntity(acDBPoint);
+                            acTrans.AddNewlyCreatedDBObject(acDBPoint, true);
+                        }
+                    }
+
+                    acTrans.Commit();
+
+                }
+                catch (System.Exception ex)
+                {
+                    ed.WriteMessage(ex.Message + "\n" + ex.StackTrace);
+                }
+            }
+
+            // Insert Point and make listPoint
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+                PromptSelectionResult res2;
+                res2 = ed.SelectWindow(pt1, pt2);
+                if (res2.Status != PromptStatus.OK)
+                    return;
+                SelectionSet sset2 = res2.Value;
+
+                List<Point3d> myListPoint2 = new List<Point3d>();
+                List<double> listXPoint2 = new List<double>();
+                List<double> listYPoint2 = new List<double>();
+
+                foreach (var objID2 in sset2.GetObjectIds())
+                {
+                    string className = objID2.ObjectClass.DxfName;
+                    //Application.DocumentManager.MdiActiveDocument.Editor.WriteMessage("\n type: {0}\n", myListPoint2.Count);
+                    if (className == "POINT")
+                    {
+                        // Convert objID2 to Point3D
+                        DBPoint myDBPoint = (DBPoint)objID2.GetObject(OpenMode.ForWrite);
+
+                        //Add to lists
+                        myListPoint2.Add((Point3d)myDBPoint.Position);
+                        listXPoint2.Add(myDBPoint.Position.X);
+                        listYPoint2.Add(myDBPoint.Position.Y);
+                    }
+                }
+
+                //list sort X = listSort by X
+                myListPoint2.Sort(sortByX);
+                List<Point3d> sortListX = myListPoint2;
+                myListPoint2.Sort(sortByY);
+                List<Point3d> sortListY = myListPoint2;
+
+
+
+                List<Point3d> myListPointAndCenter = new List<Point3d>();
+                List<double> listXCenter2 = new List<double>();
+                List<double> listYCenter2 = new List<double>();
+
+                foreach (var objID3 in sset2.GetObjectIds())
+                {
+                    string className = objID3.ObjectClass.DxfName;
+                    //Application.DocumentManager.MdiActiveDocument.Editor.WriteMessage("\n type: {0}\n", myListPoint2.Count);
+                    if (className == "CIRCLE")
+                    {
+                        // Convert objID2 to Point3D
+                        Circle myCirleHole = (Circle)objID3.GetObject(OpenMode.ForWrite);
+
+                        //Add to lists
+                        myListPointAndCenter.Add((Point3d)myCirleHole.Center);
+                        listXCenter2.Add(myCirleHole.Center.X);
+                        listYCenter2.Add(myCirleHole.Center.Y);
+                    }
+
+                    else if (className == "ELLIPSE")
+                    {
+                        
+                        // Convert objID2 to Point3D
+                        Ellipse myEllipseHole = (Ellipse)objID3.GetObject(OpenMode.ForWrite);
+
+                        //Add to lists
+                        myListPointAndCenter.Add((Point3d)myEllipseHole.Center);
+                        listXCenter2.Add(myEllipseHole.Center.X);
+                        listYCenter2.Add(myEllipseHole.Center.Y);
+                    }
+                }
+
+                PromptPointResult pPtRes;
+                PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+                // Prompt for the end point
+                pPtOpts.Message = "\nEnter position dim: ";
+                //pPtOpts.UseBasePoint = true;
+
+                pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+                if (pPtRes.Status == PromptStatus.Cancel) return;
+                Point3d ptDim = pPtRes.Value;
+
+                if (listXCenter2.Count == 0) return;
+                if (listYCenter2.Count == 0) return;
+
+                //Them 4 diem toa do bien
+                if (sortListX.Count > 1)
+                {
+                    listXCenter2.Add(sortListX[0].X);
+                    listXCenter2.Add(sortListX[sortListX.Count - 1].X);
+                }
+
+                if (sortListY.Count > 1)
+                {
+                    listYCenter2.Add(sortListY[0].Y);
+                    listYCenter2.Add(sortListY[sortListY.Count - 1].Y);
+                }
+
+
+                // KIEM TRA HUONG PICK
+                if (ptDim.Y < listYCenter2.Min() || ptDim.Y > listYCenter2.Max())
+                {
+                    myInput = "H";
+                }
+                else if (ptDim.X < listXCenter2.Min() || ptDim.X > listXCenter2.Max())
+                {
+                    myInput = "V";
+                }
+
+                else
+                {
+                    // Dang co 1 loi logic
+                    myInput = "O";
+                }
+
+
+                if (myInput == "H")
+                {
+                    if (sortListX.Count > 1)
+                    {
+                        myListPointAndCenter.Add(sortListX[0]);
+                        myListPointAndCenter.Add(sortListX[myListPoint2.Count - 1]);
+                    }
+
+                    myListPointAndCenter.Sort(sortByX);
+                    autoDimHorizontalNotSelect(myListPointAndCenter, ptDim);
+                }
+                else if (myInput == "V")
+                {
+                    if (sortListY.Count > 1)
+                    {
+                        myListPointAndCenter.Add(sortListY[0]);
+                        myListPointAndCenter.Add(sortListY[myListPoint2.Count - 1]);
+                    }
+
+
+                    myListPointAndCenter.Sort(sortByY);
+                    autoDimVerticalNotSelect(myListPointAndCenter, ptDim);
+                }
+
+
+                else
+                {
+                    PromptKeywordOptions pKeyOpts = new PromptKeywordOptions("");
+                    pKeyOpts.Message = "\nEnter an option ";
+                    pKeyOpts.Keywords.Add("Horizontal");
+                    pKeyOpts.Keywords.Add("Vertical");
+                    pKeyOpts.Keywords.Default = "Horizontal";
+                    pKeyOpts.AllowNone = false;
+
+                    PromptResult pKeyRes = acDoc.Editor.GetKeywords(pKeyOpts);
+
+                    if (pKeyRes.StringResult == "Horizontal")
+                    {
+                        myListPointAndCenter.Sort(sortByX);
+                        autoDimHorizontalNotSelect(myListPointAndCenter, ptDim);
+                    }
+                    else
+                    {
+                        myListPointAndCenter.Sort(sortByY);
+                        autoDimVerticalNotSelect(myListPointAndCenter, ptDim);
+                    }
+                }
+                acTrans.Commit();
+            }
+
+
+
+
+            // Delete all DBpoint temporatory
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                TypedValue[] acTypValAr = new TypedValue[2];
+                acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "POINT"), 0);
+                acTypValAr.SetValue(new TypedValue((int)DxfCode.LayerName, "Defpoints"), 1);
+
+                SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+                PromptSelectionResult resPoint;
+
+                resPoint = ed.SelectAll(acSelFtr);
+
+                //if (resPoint.Status != PromptStatus.OK)
+
+                //    return;
+                SelectionSet ssetPoint = resPoint.Value;
+
+                BlockTable acBlkTbl;
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                // Open the Block table record Model space for write
+                BlockTableRecord acBlkTblRec;
+                acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+
+                if (ssetPoint.Count > 0)
+                {
+                    foreach (var objID in ssetPoint.GetObjectIds())
+                    {
+                        DBPoint DBPoint = objID.GetObject(OpenMode.ForWrite) as DBPoint;
+                        DBPoint.Erase();
+
+                    }
+                }
+
+                acTrans.Commit();
+            }
+
+        }
+
+
+        [CommandMethod("DH1", CommandFlags.Modal | CommandFlags.UsePickSet | CommandFlags.Redraw)]
+        public void DimOrthoAutoHole2()
+        {
+            DimOrthoAutoHole("O");
+        }
+
+
+
         public static void autoDimHorizontalNotSelect(List<Point3d> listPoint, Point3d dimPoint)
         {
             //Create layer Dim

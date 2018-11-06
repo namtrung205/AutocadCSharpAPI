@@ -19,7 +19,6 @@ namespace myCustomCmds
 {
     public class GetDetails
     {
-
         public static Point3dCollection convertCtoP(Circle myBorderCircle)
         {
             Point3d centre = myBorderCircle.Center;
@@ -42,7 +41,6 @@ namespace myCustomCmds
 
 
         // NHOM HAM TRIMMER VA TAO CALLOUT
-
         [CommandMethod("CCO", CommandFlags.Modal)]
         public static void CreateCallOutCircle()
         {
@@ -195,6 +193,261 @@ namespace myCustomCmds
                     sendCommand("RE\n");
 
 
+                }
+            }
+            catch (Autodesk.AutoCAD.Runtime.Exception ex)
+            {
+                Application.ShowAlertDialog(ex.Message);
+            }
+
+        }
+
+
+        // NHOM HAM TRIMMER VA TAO CALLOUT
+        [CommandMethod("CCO2", CommandFlags.Modal)]
+        public static void CreateCallOutCircle2()
+        {
+            try
+            {
+                //ungroup
+                int currentPickStyle = Convert.ToInt32(Application.GetSystemVariable("PICKSTYLE").ToString());
+
+                if (currentPickStyle != 0)
+                {
+                    Application.SetSystemVariable("PICKSTYLE", 0);
+
+                }
+
+                // Chon 1 doi tuong lam border
+                Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
+                Database acCurDb = acCurDoc.Database;
+                Editor acEd = acCurDoc.Editor;
+                PromptEntityOptions acPEO = new PromptEntityOptions("\nSelect border to Clone: ");
+                acPEO.SetRejectMessage("Only accept Circle");
+                acPEO.AddAllowedClass(typeof(Circle), true);
+                PromptEntityResult acSSPrompt = acEd.GetEntity(acPEO);
+                if (acSSPrompt.Status != PromptStatus.OK) return;
+                acEd.WriteMessage("Has picked a Circle as border!");
+
+                using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+                {
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    // P3C chứa các điểm tạo polyselect
+
+                    Point3dCollection pntCol = new Point3dCollection();
+
+                    DBObject obj = acTrans.GetObject(acSSPrompt.ObjectId, OpenMode.ForWrite);
+                    // If a "lightweight" (or optimized) polyline
+                    Circle borCircle = obj as Circle;
+                    borCircle.Layer = "CALLOUT BORDER";
+
+                    // tao 1 clone cua duong tron goc để copy đi chỗ khác
+                    Circle myBorderClone = borCircle.Clone() as Circle;
+                    myBorderClone.Layer = "CALLOUT BORDER";
+
+                    if (acSSPrompt == null) return;
+
+                    // Use a for loop to get each vertex, one by one
+                    Point3d centre = borCircle.Center;
+                    double radius = borCircle.Radius - 1;
+                    int numPoints = 36;
+
+                    double angle = 2 * Math.PI / numPoints;
+
+                    for (int i = 0; i < numPoints; i++)
+                    {
+                        double x = centre.X + radius * Math.Sin(i * angle);
+                        double y = centre.Y + radius * Math.Cos(i * angle);
+                        pntCol.Add(new Point3d(x, y, 0));
+                    }
+
+                    // Lay tam duong tron diem nay sau nay se la diem chọn side trong extrim
+                    Point3d centerPoint = borCircle.Center;
+
+                    acCurDoc.Editor.WriteMessage("\n Cetern Point: {0} ", centerPoint.ToString());
+                    TypedValue[] acTypValAr = new TypedValue[1];
+
+                    //select circle and line
+                    acTypValAr[0] = new TypedValue(0, "CIRCLE,LINE,POLYLINE,SPLINE,RAY,ARC,HATCH,ELLIPSE,LWPOLYLINE,MLINE");
+
+                    //8 = DxfCode.LayerName
+
+                    // Assign the filter criteria to a SelectionFilter object
+                    SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+
+                    // Selet all object cross polygon
+                    PromptSelectionResult pmtSelRes = null;
+                    pmtSelRes = acEd.SelectCrossingPolygon(pntCol, acSelFtr);
+
+
+                    List<Entity> myListEntityClone = new List<Entity>();
+                    if (pmtSelRes.Status == PromptStatus.OK)
+                    {
+                        // Them vao List clone de move
+                        myListEntityClone.Add(myBorderClone);
+                        foreach (ObjectId objId in pmtSelRes.Value.GetObjectIds())
+                        {
+
+                            Entity myCloneEnt = objId.GetObject(OpenMode.ForWrite).Clone() as Entity;
+                            myListEntityClone.Add(myCloneEnt);
+                        }
+                    }
+
+                    // Chọn 1 diem tren man hinh de pick insert
+                    PromptPointResult pPtRes;
+                    PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+                    // Prompt for the start point
+                    pPtOpts.Message = "\nPick a point to place CallOut: ";
+                    pPtRes = acCurDoc.Editor.GetPoint(pPtOpts);
+                    Point3d ptPositionInsert = pPtRes.Value;
+
+                    // Exit if the user presses ESC or cancels the command
+                    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+                    // vector move tu tam duong tron goc tới diểm chọn
+                    Vector3d myVectorMove = centerPoint.GetVectorTo(ptPositionInsert);
+
+                    foreach (Entity ent in myListEntityClone)
+                    {
+                        ent.TransformBy(Matrix3d.Displacement(myVectorMove));
+                        // Add the new object to the block table record and the transaction
+                        acBlkTblRec.AppendEntity(ent);
+                        acTrans.AddNewlyCreatedDBObject(ent, true);
+                    }
+
+
+
+                    // Create Title
+
+                    /// Scale
+                    PromptDoubleOptions pIntOpts = new PromptDoubleOptions("");
+                    pIntOpts.Message = "\nEnter Scale factor: ";
+                    pIntOpts.DefaultValue = 1;
+
+                    PromptDoubleResult pIntRes = acCurDoc.Editor.GetDouble(pIntOpts);
+                    pIntOpts.AllowZero = false;
+                    pIntOpts.AllowNegative = false;
+
+                    if (pIntRes.Value == null) return;
+
+                    double scaleFactorCallout = pIntRes.Value;
+
+
+
+                    // Create a title
+                    PromptStringOptions pStrOpts = new PromptStringOptions("\nEnter Title Callout: ");
+                    pStrOpts.AllowSpaces = true;
+                    pStrOpts.DefaultValue = "Call Out";
+                    PromptResult pStrRes = acCurDoc.Editor.GetString(pStrOpts);
+
+                    if (pStrRes.StringResult == null || pStrRes.StringResult == "") return;
+
+
+                    string myTitle = pStrRes.StringResult;
+
+                    string myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- 1: " + scaleFactorCallout;
+
+                    if (scaleFactorCallout < 1)
+                    {
+                        int newScale = Convert.ToInt32(1 / scaleFactorCallout);
+                        myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- " + newScale + ":1";
+                    }
+
+                    else
+                    {
+                        myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- 1: " + scaleFactorCallout;
+                    }
+
+                    Point3d ptOrigin = new Point3d(ptPositionInsert.X, ptPositionInsert.Y - borCircle.Radius - scaleFactorCallout * 15, 0);
+
+                    // Exit if the user presses ESC or cancels the command
+                    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+
+                    using (MText acMText = new MText())
+                    {
+                        acMText.SetAttachmentMovingLocation(AttachmentPoint.MiddleCenter);
+                        acMText.Location = ptOrigin;
+                        acMText.Contents = myTitleText;
+                        acMText.TextHeight = 3.5 * scaleFactorCallout;
+
+                        acMText.Layer = "TITLE_BLOCK";
+
+                        acBlkTblRec.AppendEntity(acMText);
+                        acTrans.AddNewlyCreatedDBObject(acMText, true);
+                    }
+
+                    //Create Dim
+                    string myNameDimStyle = "1-1";
+
+
+                    if (scaleFactorCallout < 1)
+                    {
+                        int newScale = Convert.ToInt32(1 / scaleFactorCallout);
+                        myNameDimStyle = newScale + "-1";
+                    }
+
+                    else
+                    {
+                        myNameDimStyle = "1-" + scaleFactorCallout;
+                    }
+                    // Create Mleader
+
+                    // Lay scale dim
+                    double myCurrentScaleDim = acCurDb.GetDimstyleData().Dimscale;
+                    // Tao mleaderstyle theo dimscale
+                    CmdLeader.AddMleaderStylebyScale(myCurrentScaleDim);
+
+
+                    Point3d myFirstVer = new Point3d(borCircle.Center.X, borCircle.Center.Y+borCircle.Radius, 0);
+                    Point3d placePoint = new Point3d(borCircle.Center.X+5, borCircle.Center.Y+borCircle.Radius*2, 0);
+
+                    CmdLeader.createMleader(myTitle.ToUpper(), myFirstVer, placePoint);
+
+
+                    //Change to current Dimstyle
+                    CmdDim.ChangeDimStyle(myNameDimStyle);
+
+
+                    // Extrim Command
+                    Point3d pickPoint = new Point3d(myBorderClone.Center.X, myBorderClone.Center.Y + myBorderClone.Radius + 1000, 0);
+
+                    Point3d pickPt3d = new Point3d(myBorderClone.Center.X, myBorderClone.Center.Y + myBorderClone.Radius, 0);
+
+                    string pickPt = pickPt3d.ToString().Trim('(', ')');
+                    string sidePt = pickPoint.ToString().Trim('(', ')');
+
+                    string mycom = "_extrim " + pickPt + " " + sidePt + "\n";
+                    //doc.SendStringToExecute($"_extrim {pickPt} {sidePt} ", false, false, false);
+
+                    Application.SetSystemVariable("PICKSTYLE", currentPickStyle);
+
+                    acTrans.Commit();
+
+                    sendCommand(mycom);
+                    //sendCommand("RE\n");
+                    //sendCommand("CTC\n");
+                    sendCommand(mycom);
+
+                    sendCommand("RE\n");
                 }
             }
             catch (Autodesk.AutoCAD.Runtime.Exception ex)

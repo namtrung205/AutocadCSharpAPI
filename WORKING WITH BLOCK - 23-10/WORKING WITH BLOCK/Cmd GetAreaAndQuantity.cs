@@ -1081,4 +1081,611 @@ namespace myCustomCmds
 
 
 
+
+    public class PolylineArea
+    {
+        public static void singlePickPolyGetDim(string nameArea, Polyline myPolySelected)
+        {
+            // Get the current document and database
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
+                double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
+
+                // remove duplicate point
+
+                myPolySelected.removePointDup();
+
+                if (myPolySelected.NumberOfVertices < 3) return;
+
+                if (myPolySelected.Area == 0) return;
+
+                myPolySelected.Closed = true;
+
+                //remove 
+
+                // Lay thong tin center point cua plyline
+                Point3d myMinPoint = myPolySelected.GeometricExtents.MinPoint;
+                Point3d myMaxPoint = myPolySelected.GeometricExtents.MaxPoint;
+
+                Point3d myCenterPoint = new Point3d((myMinPoint.X + myMaxPoint.X) / 2,
+                                                    (myMinPoint.Y + myMaxPoint.Y) / 2, 0);
+
+                double deltaX = Math.Round(Math.Abs(myMaxPoint.X - myMinPoint.X),0);
+                double deltaY = Math.Round(Math.Abs(myMaxPoint.Y - myMinPoint.Y),0);
+
+
+                using (DBText myDbTextNameArea = new DBText())
+                {
+
+
+
+                    myDbTextNameArea.TextString = nameArea;
+                    myDbTextNameArea.Position = myCenterPoint;
+                    myDbTextNameArea.Justify = AttachmentPoint.MiddleCenter;
+                    myDbTextNameArea.AlignmentPoint = myCenterPoint;
+
+                    if (deltaY > deltaX)
+                    {
+                        myDbTextNameArea.Rotation = Math.PI/2;
+                    }
+
+
+                    acBlkTblRec.AppendEntity(myDbTextNameArea);
+                    acTrans.AddNewlyCreatedDBObject(myDbTextNameArea, true);
+                }
+                acTrans.Commit();
+            }
+        }
+   
+    
+        [CommandMethod("getAreaDim")]
+        public static void getNameArea()
+        {
+             Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
+                // Create a TypedValue array to define the filter criteria
+                TypedValue[] acTypValAr = new TypedValue[1];
+                acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "POLYLINE,LWPOLYLINE"), 0);
+
+                // Assign the filter criteria to a SelectionFilter object
+                SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+                // Request for objects to be selected in the drawing area
+                PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection(acSelFtr);
+
+                // If the prompt status is OK, objects were selected
+                if (acSSPrompt.Status == PromptStatus.OK)
+                {
+                    SelectionSet acSSet = acSSPrompt.Value;
+                    if (acSSet == null) return;
+
+                    List<Polyline> myListPolyValid = new List<Polyline>();
+
+                    foreach (SelectedObject acSSObj in acSSet)
+                    {
+                        Polyline myPolylineItem = acSSObj.ObjectId.GetObject(OpenMode.ForWrite) as Polyline;
+
+                        if (myPolylineItem.Area > 0 && myPolylineItem.NumberOfVertices > 2)
+                        {
+                            myListPolyValid.Add(myPolylineItem);
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    // input string
+                    // Create a title
+                    PromptStringOptions pStrOpts = new PromptStringOptions("\nEnter Title Callout: ");
+                    pStrOpts.AllowSpaces = true;
+                    pStrOpts.DefaultValue = "T";
+                    PromptResult pStrRes = acDoc.Editor.GetString(pStrOpts);
+
+
+                    // ghi file csv
+
+                    StringBuilder csvContent = new StringBuilder();
+                    // Ghi header row
+                    csvContent.AppendLine("Tên tấm, Rộng, Dài, Số Lượng");
+
+
+                    if (pStrRes.StringResult == null || pStrRes.StringResult == "") return;
+
+
+                    string mySymbolName = pStrRes.StringResult.ToUpper();
+
+                    Dictionary<string,int> myDic = new Dictionary<string,int>();
+
+                    foreach (Polyline myPoly in myListPolyValid)
+                    {
+                        Point3d myMinPoint = myPoly.GeometricExtents.MinPoint;
+                        Point3d myMaxPoint = myPoly.GeometricExtents.MaxPoint;
+
+                        double deltaX = Math.Round(Math.Abs(myMaxPoint.X - myMinPoint.X), 0);
+                        double deltaY = Math.Round(Math.Abs(myMaxPoint.Y - myMinPoint.Y), 0);
+
+
+                        string myNameArea = mySymbolName + "-" + deltaX + " x " + deltaY;
+
+                        if (myDic.ContainsKey(myNameArea))
+                        {
+                            myDic[myNameArea]++;
+                        }
+                        else
+                        {
+                            myDic.Add(myNameArea, 1);
+                        }
+
+
+                        //string lineToWrite = String.Format("{0},{1},{2},{3}", myNameArea, deltaX, deltaY, 1);
+
+                        //csvContent.AppendLine(lineToWrite);
+
+                        singlePickPolyGetDim(myNameArea, myPoly);
+                    }
+
+                    // Write file csv
+                    foreach (KeyValuePair<string, int> myPlate in myDic)
+                    {
+                        string lineToWrite = String.Format("{0},{1}", myPlate.Key, myPlate.Value);
+                        csvContent.AppendLine(lineToWrite);
+                    }
+
+
+                    string pathCsv = "D:\\abc.csv";
+                    File.AppendAllText(pathCsv, csvContent.ToString());
+                }
+                acTrans.Commit();
+                return;
+            }
+        
+        }
+
+
+        [CommandMethod("GAD")]
+        public static void getNameArea2()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
+                // Create a TypedValue array to define the filter criteria
+                TypedValue[] acTypValAr = new TypedValue[1];
+                acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "POLYLINE,LWPOLYLINE"), 0);
+
+                // Assign the filter criteria to a SelectionFilter object
+                SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+                // Request for objects to be selected in the drawing area
+                PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection(acSelFtr);
+
+                // If the prompt status is OK, objects were selected
+                if (acSSPrompt.Status == PromptStatus.OK)
+                {
+                    SelectionSet acSSet = acSSPrompt.Value;
+                    if (acSSet == null) return;
+
+                    List<Polyline> myListPolyValid = new List<Polyline>();
+
+                    foreach (SelectedObject acSSObj in acSSet)
+                    {
+                        Polyline myPolylineItem = acSSObj.ObjectId.GetObject(OpenMode.ForWrite) as Polyline;
+
+                        if (myPolylineItem.Area > 0 && myPolylineItem.NumberOfVertices > 2)
+                        {
+                            myListPolyValid.Add(myPolylineItem);
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    // input string
+                    // Create a title
+                    PromptStringOptions pStrOpts = new PromptStringOptions("\nEnter Title Callout: ");
+                    pStrOpts.AllowSpaces = true;
+                    pStrOpts.DefaultValue = "T";
+                    PromptResult pStrRes = acDoc.Editor.GetString(pStrOpts);
+
+
+                    // ghi file csv
+
+                    StringBuilder csvContent = new StringBuilder();
+                    // Ghi header row
+                    csvContent.AppendLine("TEN, RONG, DAI, SO LUONG");
+
+
+                    if (pStrRes.StringResult == null || pStrRes.StringResult == "") return;
+
+
+                    string mySymbolName = pStrRes.StringResult.ToUpper();
+
+                    Dictionary<myCustomPlate, int> myDic = new Dictionary<myCustomPlate, int>(new CustomerEqualityComparer());
+
+                    foreach (Polyline myPoly in myListPolyValid)
+                    {
+                        Point3d myMinPoint = myPoly.GeometricExtents.MinPoint;
+                        Point3d myMaxPoint = myPoly.GeometricExtents.MaxPoint;
+
+                        double deltaX = Math.Round(Math.Abs(myMaxPoint.X - myMinPoint.X), 0);
+                        double deltaY = Math.Round(Math.Abs(myMaxPoint.Y - myMinPoint.Y), 0);
+
+
+                        string myNameArea = mySymbolName + "-" + deltaX + " x " + deltaY;
+
+                        myCustomPlate myPlate = new myCustomPlate(myNameArea, deltaX, deltaY);
+
+                        if (myDic.ContainsKey(myPlate))
+                        {
+                            myDic[myPlate]++;
+                        }
+                        else
+                        {
+                            myDic.Add(myPlate, 1);
+                        }
+
+
+                        //string lineToWrite = String.Format("{0},{1},{2},{3}", myNameArea, deltaX, deltaY, 1);
+
+                        //csvContent.AppendLine(lineToWrite);
+
+                        singlePickPolyGetDim(myNameArea, myPoly);
+                    }
+
+                    // Write file csv
+                    foreach (KeyValuePair<myCustomPlate, int> myPlate in myDic)
+                    {
+                        string lineToWrite = String.Format("{0},{1},{2},{3}", myPlate.Key.Name, myPlate.Key.Width, myPlate.Key.Height, myPlate.Value);
+                        csvContent.AppendLine(lineToWrite);
+
+                    }
+
+                    try
+                    {
+                        string pathCsv = "D:\\PTKLTemp.csv";
+                        File.AppendAllText(pathCsv, csvContent.ToString());
+                        System.Diagnostics.Process.Start(pathCsv);
+                        acTrans.Commit();
+                        return;
+                    }
+                    catch
+                    {
+                        Application.ShowAlertDialog("File D://PTKLTemp.csv có thể đang được mở, đóng file va thử lại!");
+                    }
+
+                }
+
+            }
+
+        }
+
+
+
+        [CommandMethod("GSD")]
+        public static void getDimBySection()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
+                // Create a TypedValue array to define the filter criteria
+                TypedValue[] acTypValAr = new TypedValue[1];
+                acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "POLYLINE,LWPOLYLINE"), 0);
+
+                // Assign the filter criteria to a SelectionFilter object
+                SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+                // Request for objects to be selected in the drawing area
+                PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection(acSelFtr);
+
+                // If the prompt status is OK, objects were selected
+                if (acSSPrompt.Status == PromptStatus.OK)
+                {
+                    SelectionSet acSSet = acSSPrompt.Value;
+                    if (acSSet == null) return;
+
+                    List<Polyline> myListPolyValid = new List<Polyline>();
+
+                    foreach (SelectedObject acSSObj in acSSet)
+                    {
+                        Polyline myPolylineItem = acSSObj.ObjectId.GetObject(OpenMode.ForWrite) as Polyline;
+
+                        if (myPolylineItem.Area > 0 && myPolylineItem.NumberOfVertices > 2)
+                        {
+                            myListPolyValid.Add(myPolylineItem);
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    // input string
+                    // Create a title
+                    PromptStringOptions pStrOpts = new PromptStringOptions("\nEnter Title Callout: ");
+                    pStrOpts.AllowSpaces = true;
+                    pStrOpts.DefaultValue = "T";
+                    PromptResult pStrRes = acDoc.Editor.GetString(pStrOpts);
+
+
+                    // ghi file csv
+
+                    StringBuilder csvContent = new StringBuilder();
+                    // Ghi header row
+                    csvContent.AppendLine("TEN, RONG, DAI, SO LUONG, VAT LIEU");
+
+
+                    if (pStrRes.StringResult == null || pStrRes.StringResult == "") return;
+
+
+                    string mySymbolName = pStrRes.StringResult.ToUpper();
+
+                    Dictionary<myCustomSection, int> myDic = new Dictionary<myCustomSection, int>(new CustomerSectionEqualityComparer());
+
+                    foreach (Polyline myPoly in myListPolyValid)
+                    {
+                        Point3d myMinPoint = myPoly.GeometricExtents.MinPoint;
+                        Point3d myMaxPoint = myPoly.GeometricExtents.MaxPoint;
+
+                        double deltaX = Math.Round(Math.Abs(myMaxPoint.X - myMinPoint.X), 0);
+                        double deltaY = Math.Round(Math.Abs(myMaxPoint.Y - myMinPoint.Y), 0);
+
+
+                        string myNameArea = mySymbolName + "-" + deltaX + " x " + deltaY;
+
+                        string myMaterial = myPoly.Layer;
+
+                        myCustomSection mySection = new myCustomSection(myNameArea, deltaX, deltaY, myMaterial);
+
+                        if (myDic.ContainsKey(mySection))
+                        {
+                            myDic[mySection]++;
+                        }
+                        else
+                        {
+                            myDic.Add(mySection, 1);
+                        }
+
+
+                        //string lineToWrite = String.Format("{0},{1},{2},{3}", myNameArea, deltaX, deltaY, 1);
+
+                        //csvContent.AppendLine(lineToWrite);
+
+                        singlePickPolyGetDim(myNameArea, myPoly);
+                    }
+
+                    // Write file csv
+                    foreach (KeyValuePair<myCustomSection, int> myPlateSec in myDic)
+                    {
+                        string lineToWrite = String.Format("{0},{1},{2},{3},{4}", myPlateSec.Key.Name, myPlateSec.Key.Width, myPlateSec.Key.Height, myPlateSec.Value, myPlateSec.Key.Material);
+                        csvContent.AppendLine(lineToWrite);
+
+                    }
+
+                    try
+                    {
+                        string pathCsv = "D:\\PTKLTemp.csv";
+                        File.AppendAllText(pathCsv, csvContent.ToString());
+                        System.Diagnostics.Process.Start(pathCsv);
+                        acTrans.Commit();
+                        return;
+                    }
+                    catch
+                    {
+                        Application.ShowAlertDialog("File D://PTKLTemp.csv có thể đang được mở, đóng file va thử lại!");
+                    }
+
+                }
+
+            }
+
+        }
+    
+    
+    
+    }
+
+    public class myCustomPlate
+    {
+        public myCustomPlate(string namePlate, double width, double height )
+        {
+            this.name = namePlate;
+            this.width = width;
+            this.height = height;
+        }
+
+        public string Name
+        {
+            get { return name;}
+            set { name = value; }
+        }
+
+        public double Width
+        {
+            get { return width; }
+            set { width = value; }
+        }
+        public double Height
+        {
+            get { return height; }
+            set { height = value; }
+        }
+
+        string name;
+        double width;
+        double height;
+    }
+  
+    public class CustomerEqualityComparer : IEqualityComparer<myCustomPlate>
+    {
+        #region IEqualityComparer<Customer> Members
+
+        public bool Equals(myCustomPlate x, myCustomPlate y)
+        {
+            return (x.Name == y.Name);
+        }
+
+        public int GetHashCode(myCustomPlate obj)
+        {
+            string combined = obj.Name;
+            return (combined.GetHashCode());
+        }
+
+        #endregion
+    }
+
+
+
+    public class myCustomSection
+    {
+        public myCustomSection(string namePlate, double width, double height, string material )
+        {
+            this.name = namePlate;
+            this.width = width;
+            this.height = height;
+            this.material = material;
+        }
+
+        public string Name
+        {
+            get { return name;}
+            set { name = value; }
+        }
+
+        public double Width
+        {
+            get { return width; }
+            set { width = value; }
+        }
+        public double Height
+        {
+            get { return height; }
+            set { height = value; }
+        }
+
+        public string Material
+        {
+            get { return material; }
+            set { material = value; }
+        }
+
+        string name;
+        double width;
+        double height;
+        string material;
+    }
+
+    public class CustomerSectionEqualityComparer : IEqualityComparer<myCustomSection>
+    {
+        #region IEqualityComparer<Customer> Members
+
+        public bool Equals(myCustomSection x, myCustomSection y)
+        {
+            return (x.Name == y.Name);
+        }
+
+        public int GetHashCode(myCustomSection obj)
+        {
+            string combined = obj.Name;
+            return (combined.GetHashCode());
+        }
+
+        #endregion
+    }
+
+
+
+
+
 }
