@@ -57,6 +57,9 @@ namespace myCustomCmds
         [CommandMethod("PP")]
         public static void abc()
         {
+
+            if (!CheckLicense.licensed) return;
+
             // Get the current document and database
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;

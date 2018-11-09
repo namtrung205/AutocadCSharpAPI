@@ -70,6 +70,233 @@ namespace commonFunctions
             return area;
         }
 
+        // Lay chieu dai canh lon nhat cua polyline
+        public static double GetMaxSegment(this Polyline pline)
+        {
+            var acDoc = Application.DocumentManager.MdiActiveDocument;
+            var acCurDb = acDoc.Database;
+            var ed = acDoc.Editor;
+
+            {
+                // at this point we know an entity have been selected and it is a Polyline
+                using (var acTrans = acCurDb.TransactionManager.StartTransaction())
+                {
+
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+
+                    //pline.Closed = true;
+
+                    //Xoa cac diem trung nhau
+                    pline.removePointDup();
+
+                    // Kiem tra chieu polyline de  of set
+                    double PolyArea = pline.GetArea();
+
+                    double maxLengthSegment = 0;
+
+                    // iterte through all segments
+                    for (int i = 0; i < pline.NumberOfVertices; i++)
+                    {
+                        switch (pline.GetSegmentType(i))
+                        {
+                            case SegmentType.Arc:
+                                break;
+                            case SegmentType.Line:
+                                // DimAlign
+                                LineSegment2d line = pline.GetLineSegment2dAt(i);
+                                //Gan gia tri max cho length segment
+                                maxLengthSegment = Math.Max(line.Length, maxLengthSegment);
+                                break;
+                            default:
+                                ed.WriteMessage("\n\n Segment {0} : zero length segment", i);
+                                break;
+                        }
+                    }
+                    acTrans.Commit();
+                    return Math.Round(maxLengthSegment,0);
+                }
+                //Application.DisplayTextScreen =;
+            }
+        }
+
+
+        // Lay chieu dai canh nho nhat cua polyline
+        public static double GetMinSegment(this Polyline pline)
+        {
+            var acDoc = Application.DocumentManager.MdiActiveDocument;
+            var acCurDb = acDoc.Database;
+            var ed = acDoc.Editor;
+
+            {
+                // at this point we know an entity have been selected and it is a Polyline
+                using (var acTrans = acCurDb.TransactionManager.StartTransaction())
+                {
+
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+
+                    //pline.Closed = true;
+
+                    //Xoa cac diem trung nhau
+                    pline.removePointDup();
+
+                    // Kiem tra chieu polyline de  of set
+                    double PolyArea = pline.GetArea();
+
+                    double minLengthSegment = 1000000;
+
+                    // iterte through all segments
+                    for (int i = 0; i < pline.NumberOfVertices; i++)
+                    {
+                        switch (pline.GetSegmentType(i))
+                        {
+                            case SegmentType.Arc:
+                                break;
+                            case SegmentType.Line:
+                                // DimAlign
+                                LineSegment2d line = pline.GetLineSegment2dAt(i);
+                                //Gan gia tri max cho length segment
+                                minLengthSegment = Math.Min(line.Length, minLengthSegment);
+                                break;
+                            default:
+                                ed.WriteMessage("\n\n Segment {0} : zero length segment", i);
+                                break;
+                        }
+                    }
+                    acTrans.Commit();
+                    return Math.Round(minLengthSegment,0);
+                }
+                //Application.DisplayTextScreen =;
+            }
+        }
+
+        // Lay chieu dai canh nho nhat cua polyline
+        public static double GetMinDistancepVerToLine(this Polyline pline)
+        {
+            var acDoc = Application.DocumentManager.MdiActiveDocument;
+            var acCurDb = acDoc.Database;
+            var ed = acDoc.Editor;
+
+            {
+                // at this point we know an entity have been selected and it is a Polyline
+                using (var acTrans = acCurDb.TransactionManager.StartTransaction())
+                {
+
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+
+                    //pline.Closed = true;
+
+                    //Xoa cac diem trung nhau
+                    pline.removePointDup();
+
+                    // Kiem tra chieu polyline de  of set
+                    double PolyArea = pline.GetArea();
+
+                    double minLength = 1000000;
+                    double maxLength = 0;
+
+                    LineSegment2d maxLengthSegment = new LineSegment2d();
+                    LineSegment2d minLengthSegment = new LineSegment2d();
+
+                    // iterte through all segments
+                    for (int i = 0; i < pline.NumberOfVertices; i++)
+                    {
+                        switch (pline.GetSegmentType(i))
+                        {
+                            case SegmentType.Arc:
+                                break;
+                            case SegmentType.Line:
+                                // DimAlign
+                                LineSegment2d line = pline.GetLineSegment2dAt(i);
+                                //Neu line co length min hoac max thi gan va doi
+                                //Min
+                                if (line.Length < minLength)
+                                {
+                                    minLengthSegment = line;
+                                    minLength = line.Length;
+                                }
+                                if (line.Length > maxLength)
+                                {
+                                    maxLengthSegment = line;
+                                    maxLength = line.Length;
+                                }
+
+                                break;
+                            default:
+                                ed.WriteMessage("\n\n Segment {0} : zero length segment", i);
+                                break;
+                        }
+                    }
+                    //Tinh goc giua 2 segment:
+                    double angleB2Segment;
+                    Vector2d lineMax = maxLengthSegment.Direction;
+                    Vector2d lineMin = minLengthSegment.Direction;
+                    //angleB2Segment = lineMax.
+
+                    angleB2Segment = lineMin.GetAngleTo(lineMax);
+
+                    double minDistance = Math.Round(minLength * Math.Sin(angleB2Segment));
+
+                    acTrans.Commit();
+                    return minDistance;
+                }
+                //Application.DisplayTextScreen =;
+            }
+        }
+
+
+
+
 
         public static List<Point3d> getMinMaxPoint(this Polyline myPolyline)
         {
@@ -109,6 +336,87 @@ namespace commonFunctions
 
             return my4Point;
         }
+
+
+
+ 
+
+        [CommandMethod("GetDistanceBetweenTwoPoints")]
+
+        public static void GetDistanceBetweenTwoPoints()
+        {
+          Document acDoc = Application.DocumentManager.MdiActiveDocument;
+          PromptDoubleResult pDblRes;
+          pDblRes = acDoc.Editor.GetDistance("\nPick two points: ");
+          Application.ShowAlertDialog("\nDistance between points: " +
+                                      pDblRes.Value.ToString());
+        }
+
+
+        [CommandMethod("GetKeywordFromUser")]
+        public static void GetKeywordFromUser()
+        {
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+            PromptKeywordOptions pKeyOpts = new PromptKeywordOptions("");
+            pKeyOpts.Message = "\nEnter an option ";
+            pKeyOpts.Keywords.Add("Line");
+            pKeyOpts.Keywords.Add("Circle");
+            pKeyOpts.Keywords.Add("Arc");
+            pKeyOpts.AllowNone = false;
+
+            PromptResult pKeyRes = acDoc.Editor.GetKeywords(pKeyOpts);
+
+            Application.ShowAlertDialog("Entered keyword: " +
+                                        pKeyRes.StringResult);
+        }
+
+
+
+
+
+        [CommandMethod("SELKW")]
+
+        public static void GetSelectionWithKeywords()
+        {
+
+            Document doc =
+
+            Application.DocumentManager.MdiActiveDocument;
+            Editor ed = doc.Editor;
+            // Create our options object
+            PromptSelectionOptions pso = new PromptSelectionOptions();
+
+            // Add our keywords
+            pso.Keywords.Add("FIrst");
+            pso.Keywords.Add("Second");
+
+            // Set our prompts to include our keywords
+            string kws = pso.Keywords.GetDisplayString(true);
+
+            pso.MessageForAdding = "\nAdd objects to selection or " + kws;
+
+            pso.MessageForRemoval = "\nRemove objects from selection or " + kws;
+
+            // Implement a callback for when keywords are entered
+            pso.KeywordInput +=
+              delegate(object sender, SelectionTextInputEventArgs e)
+              {
+                  ed.WriteMessage("\nKeyword entered: {0}", e.Input);
+              };
+
+            // Finally run the selection and show any results
+
+            PromptSelectionResult psr = ed.GetSelection(pso);
+
+            if (psr.Status == PromptStatus.OK)
+            {
+                ed.WriteMessage("\n{0} object{1} selected.",psr.Value.Count,psr.Value.Count == 1 ? "" : "s");
+
+            }
+
+        }
+
 
         static int sortByY(Point3d a, Point3d b)
         {

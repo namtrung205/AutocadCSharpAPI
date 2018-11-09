@@ -24,6 +24,8 @@ namespace myCustomCmds
         [CommandMethod("CTC")]
         public static void CreateTitleCallout()
         {
+            //SetLayerCurrent("DIM");
+            CmdLayer.createALayerByName("TEXT SUBTITLE");
             // Get the current document and database
             Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acCurDoc.Database;

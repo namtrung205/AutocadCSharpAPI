@@ -57,11 +57,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Check Id.cs" />
     <Compile Include="Cmd Plot - Copy.cs" />
     <Compile Include="Cmd Plot.cs" />
     <Compile Include="Cmd Group.cs" />
     <Compile Include="Cmd Leader.cs" />
     <Compile Include="Cmd Layer.cs" />
+    <Compile Include="Cmd GetAreaAndQuantity.cs" />
     <Compile Include="Cmd PolyLineClosed.cs" />
     <Compile Include="Common function.cs" />
     <Compile Include="Cmd Detail Parts.cs" />

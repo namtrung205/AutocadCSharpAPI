@@ -27,6 +27,7 @@ namespace myCustomCmds
         //HAM CHUNG:
         public static void DrawMDFVarmm(double myInput)
         {
+            if (!CheckLicense.licensed) return;
 
 
             // Get the current database and start the Transaction Manager
@@ -68,10 +69,20 @@ namespace myCustomCmds
             pPtRes = acDoc.Editor.GetPoint(pPtOpts);
             Point3d ptSide = pPtRes.Value;
 
+            if (pPtRes.Status == PromptStatus.Cancel) return;
+
+            Line myPickLine = new Line(ptStart, ptEnd);
+            
+            // lay diem gan nhat nam tren line voi point pick
+
+            int defaultThickness = Convert.ToInt32(ptSide.DistanceTo(myPickLine.GetClosestPointTo(ptSide, true)));
+            
+
+            //int thicknessPick = 
+
             bool sidePicked = isLeftOrAbove(ptStart, ptEnd, ptSide);
 
 
-            if (pPtRes.Status == PromptStatus.Cancel) return;
 
             // Start a transaction
             using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
@@ -98,20 +109,15 @@ namespace myCustomCmds
                 // Define the new line
                 using (Line acLine = new Line(ptStart, ptEnd))
                 {
-                    // Add the line to the drawing
-                    //acBlkTblRec.AppendEntity(acLine);
-                    //acTrans.AddNewlyCreatedDBObject(acLine, true);
-
-                    // Offset from line (acLine)
 
                     double thickness = myInput;
-
 
                     if (thickness == 0)
                     {
                         PromptIntegerOptions pIntOpts = new PromptIntegerOptions("");
                         pIntOpts.Message = "\nEnter thickness: ";
-                        pIntOpts.DefaultValue = 18;
+                        pIntOpts.DefaultValue = defaultThickness;
+
 
 
                         PromptIntegerResult pIntRes = acDoc.Editor.GetInteger(pIntOpts);

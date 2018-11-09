@@ -259,6 +259,9 @@ namespace myCustomCmds
         [CommandMethod("D1")]
         public static void mergeDim()
         {
+
+            if (!CheckLicense.licensed) return;
+
             //Create layer Dim
             CmdLayer.createALayerByName("DIM");
 
@@ -439,6 +442,9 @@ namespace myCustomCmds
         [CommandMethod("D2")]
         public static void splitDim()
         {
+
+            if (!CheckLicense.licensed) return;
+
             //Create layer Dim
             CmdLayer.createALayerByName("DIM");
 
@@ -1325,6 +1331,7 @@ namespace myCustomCmds
         [CommandMethod("DD", CommandFlags.Modal | CommandFlags.UsePickSet | CommandFlags.Redraw)]
         public void DimOrthoAuto2()
         {
+            if (!CheckLicense.licensed) return;
             DimOrthoAuto("O");
         }
 
@@ -1667,6 +1674,7 @@ namespace myCustomCmds
         [CommandMethod("DH1", CommandFlags.Modal | CommandFlags.UsePickSet | CommandFlags.Redraw)]
         public void DimOrthoAutoHole2()
         {
+            if (!CheckLicense.licensed) return;
             DimOrthoAutoHole("O");
         }
 

@@ -44,6 +44,7 @@ namespace myCustomCmds
         [CommandMethod("CCO", CommandFlags.Modal)]
         public static void CreateCallOutCircle()
         {
+            if (!CheckLicense.licensed) return;
             try
             {
                 //ungroup
@@ -207,6 +208,7 @@ namespace myCustomCmds
         [CommandMethod("CCO2", CommandFlags.Modal)]
         public static void CreateCallOutCircle2()
         {
+            if (!CheckLicense.licensed) return;
             try
             {
                 //ungroup
@@ -1049,7 +1051,7 @@ namespace myCustomCmds
         [CommandMethod("CB")]
         public void CreatingABlock()
         {
-
+            if (!CheckLicense.licensed) return;
             // Get the current database and start the Transaction Manager
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acDoc.Database;

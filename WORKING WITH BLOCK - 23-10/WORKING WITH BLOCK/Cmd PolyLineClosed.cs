@@ -103,12 +103,26 @@ namespace myCustomCmds
                 double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
 
 
-                ObjectId myObjId = myCustomFunctions.GetObjectIdByType("POLYLINE,LWPOLYLINE");
+                //ObjectId myObjId = myCustomFunctions.GetObjectIdByType("POLYLINE,LWPOLYLINE");
 
+                //if (myObjId.ToString() == "0") return;
+                //if (myObjId == new ObjectId()) return;
+                //if (myObjId.GetObject(OpenMode.ForRead).GetRXClass().DxfName != "POLYLINE" &&
+                //    myObjId.GetObject(OpenMode.ForRead).GetRXClass().DxfName != "LWPOLYLINE") return;
+
+
+                var options = new PromptEntityOptions("\nSelect Polyline: ");
+                options.SetRejectMessage("\nSelected object is no a Polyline.");
+                options.AddAllowedClass(typeof(Polyline), true);
+
+                var result = acDoc.Editor.GetEntity(options);
+                if (result.Status != PromptStatus.OK) return;
+                ObjectId myObjId = result.ObjectId;
                 if (myObjId.ToString() == "0") return;
                 if (myObjId == new ObjectId()) return;
 
                 Polyline myPolySelected = myObjId.GetObject(OpenMode.ForWrite) as Polyline;
+
 
                 if (myPolySelected.NumberOfVertices < 2) return;
 
