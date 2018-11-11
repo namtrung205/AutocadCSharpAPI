@@ -57,7 +57,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Check Id.cs" />
+    <Compile Include="Encrypting Decrypting.cs" />
+    <Compile Include="Check License.cs" />
     <Compile Include="Cmd Plot - Copy.cs" />
     <Compile Include="Cmd Plot.cs" />
     <Compile Include="Cmd Group.cs" />

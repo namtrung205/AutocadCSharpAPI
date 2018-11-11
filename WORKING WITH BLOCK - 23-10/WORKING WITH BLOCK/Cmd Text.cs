@@ -34,7 +34,7 @@ namespace myCustomCmds
             /// Scale
             PromptDoubleOptions pIntOpts = new PromptDoubleOptions("");
             pIntOpts.Message = "\nEnter Scale factor: ";
-            pIntOpts.DefaultValue = 1;
+            pIntOpts.DefaultValue = acCurDb.Dimscale;
 
             PromptDoubleResult pIntRes = acCurDoc.Editor.GetDouble(pIntOpts);
             pIntOpts.AllowZero = false;
