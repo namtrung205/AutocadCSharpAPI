@@ -176,84 +176,177 @@ namespace myCustomCmds
 
             Document acDoc = Application.DocumentManager.MdiActiveDocument;
 
-            Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
-            Database acCurDb = acDoc.Database;
-            // Draws a circle and zooms to the extents or 
-            // limits of the drawing
-
-
-            PromptPointResult pPtRes;
-            PromptPointOptions pPtOpts = new PromptPointOptions("");
-
-            // Prompt for the start point
-            pPtOpts.Message = "\nEnter the first point of the line: ";
-            pPtRes = acDoc.Editor.GetPoint(pPtOpts);
-            Point3d ptStart = pPtRes.Value;
-
-            // Exit if the user presses ESC or cancels the command
-            if (pPtRes.Status == PromptStatus.Cancel) return;
-
-            // Prompt for the end point
-            pPtOpts.Message = "\nEnter the end point of the line: ";
-            pPtOpts.UseBasePoint = true;
-            pPtOpts.BasePoint = ptStart;
-            pPtRes = acDoc.Editor.GetPoint(pPtOpts);
-            Point3d ptEnd = pPtRes.Value;
-
-            if (pPtRes.Status == PromptStatus.Cancel) return;
-
-
-            // Prompt for the end point
-            pPtOpts.Message = "\nEnter position dim: ";
-
-            Point3d ptMid = new Point3d((ptStart.X + ptEnd.X) / 2, (ptStart.Y + ptEnd.Y) / 2, (ptStart.Z + ptEnd.Z) / 2);
-            //pPtOpts.UseBasePoint = true;
-            //pPtOpts.BasePoint = ptMid;
-            //pPtOpts.UseDashedLine = true;
-            pPtRes = acDoc.Editor.GetPoint(pPtOpts);
-            Point3d ptDim = pPtRes.Value;
-            if (pPtRes.Status == PromptStatus.Cancel) return;
-
-
-            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            using (DocumentLock docLock = acDoc.LockDocument())
             {
 
-                BlockTable acBlkTbl;
-                BlockTableRecord acBlkTblRec;
+                Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
+                Database acCurDb = acDoc.Database;
+                // Draws a circle and zooms to the extents or 
+                // limits of the drawing
 
-                // Open Model space for write
-                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                                OpenMode.ForRead) as BlockTable;
 
-                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                PromptPointResult pPtRes;
+                PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+                // Prompt for the start point
+                pPtOpts.Message = "\nEnter the first point of the line: ";
+                pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+                Point3d ptStart = pPtRes.Value;
+
+                // Exit if the user presses ESC or cancels the command
+                if (pPtRes.Status == PromptStatus.Cancel) return;
+
+                // Prompt for the end point
+                pPtOpts.Message = "\nEnter the end point of the line: ";
+                pPtOpts.UseBasePoint = true;
+                pPtOpts.BasePoint = ptStart;
+                pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+                Point3d ptEnd = pPtRes.Value;
+
+                if (pPtRes.Status == PromptStatus.Cancel) return;
+
+
+                // Prompt for the end point
+                pPtOpts.Message = "\nEnter position dim: ";
+
+                Point3d ptMid = new Point3d((ptStart.X + ptEnd.X) / 2, (ptStart.Y + ptEnd.Y) / 2, (ptStart.Z + ptEnd.Z) / 2);
+                //pPtOpts.UseBasePoint = true;
+                //pPtOpts.BasePoint = ptMid;
+                //pPtOpts.UseDashedLine = true;
+                pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+                Point3d ptDim = pPtRes.Value;
+                if (pPtRes.Status == PromptStatus.Cancel) return;
+
+
+                using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
                 {
-                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                                OpenMode.ForWrite) as BlockTableRecord;
+
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+
+                    double myRotation = Math.Atan2(ptStart.Y - ptEnd.Y, ptStart.X - ptEnd.X);
+
+                    //var dim = new RotatedDimension(ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
+                    RotatedDimension dim = new RotatedDimension(myRotation, ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
+                    //dim.XLine1Point = ptStart;
+
+
+                    dim.Layer = "DIM";
+
+                    // Add the new object to Model space and the transaction
+                    acBlkTblRec.AppendEntity(dim);
+                    acTrans.AddNewlyCreatedDBObject(dim, true);
+
+                    // Commit the changes and dispose of the transaction
+                    acTrans.Commit();
                 }
-                else
-                {
-                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
-                            OpenMode.ForWrite) as BlockTableRecord;
-                }
-
-
-                double myRotation = Math.Atan2(ptStart.Y - ptEnd.Y, ptStart.X - ptEnd.X);
-
-                //var dim = new RotatedDimension(ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
-                RotatedDimension dim = new RotatedDimension(myRotation, ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
-                //dim.XLine1Point = ptStart;
-
-                
-                dim.Layer = "DIM";
-
-                // Add the new object to Model space and the transaction
-                acBlkTblRec.AppendEntity(dim);
-                acTrans.AddNewlyCreatedDBObject(dim, true);
-
-                // Commit the changes and dispose of the transaction
-                acTrans.Commit();
             }
         }
+
+
+        /// NHÓM HÀM DIMENSION
+        //[CommandMethod("DX")]
+        //public static void DLICustom()
+        //{
+        //    //SetLayerCurrent("DIM");
+        //    CmdLayer.createALayerByName("DIM");
+
+        //    Document acDoc = Application.DocumentManager.MdiActiveDocument;
+
+        //    Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
+        //    Database acCurDb = acDoc.Database;
+        //    // Draws a circle and zooms to the extents or 
+        //    // limits of the drawing
+
+
+        //    PromptPointResult pPtRes;
+        //    PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+        //    // Prompt for the start point
+        //    pPtOpts.Message = "\nEnter the first point of the line: ";
+        //    pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+        //    Point3d ptStart = pPtRes.Value;
+
+        //    // Exit if the user presses ESC or cancels the command
+        //    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+        //    // Prompt for the end point
+        //    pPtOpts.Message = "\nEnter the end point of the line: ";
+        //    pPtOpts.UseBasePoint = true;
+        //    pPtOpts.BasePoint = ptStart;
+        //    pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+        //    Point3d ptEnd = pPtRes.Value;
+
+        //    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+
+        //    // Prompt for the end point
+        //    pPtOpts.Message = "\nEnter position dim: ";
+
+        //    Point3d ptMid = new Point3d((ptStart.X + ptEnd.X) / 2, (ptStart.Y + ptEnd.Y) / 2, (ptStart.Z + ptEnd.Z) / 2);
+        //    //pPtOpts.UseBasePoint = true;
+        //    //pPtOpts.BasePoint = ptMid;
+        //    //pPtOpts.UseDashedLine = true;
+        //    pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+        //    Point3d ptDim = pPtRes.Value;
+        //    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+
+        //    using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+        //    {
+
+        //        BlockTable acBlkTbl;
+        //        BlockTableRecord acBlkTblRec;
+
+        //        // Open Model space for write
+        //        acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+        //                                        OpenMode.ForRead) as BlockTable;
+
+        //        if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+        //        {
+        //            acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+        //                                        OpenMode.ForWrite) as BlockTableRecord;
+        //        }
+        //        else
+        //        {
+        //            acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+        //                    OpenMode.ForWrite) as BlockTableRecord;
+        //        }
+
+
+        //        double myRotation = Math.Atan2(ptStart.Y - ptEnd.Y, ptStart.X - ptEnd.X);
+
+        //        //var dim = new RotatedDimension(ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
+        //        RotatedDimension dim = new RotatedDimension(myRotation, ptStart, ptEnd, ptDim, null, acCurDb.Dimstyle);
+        //        //dim.XLine1Point = ptStart;
+
+
+        //        dim.Layer = "DIM";
+
+        //        // Add the new object to Model space and the transaction
+        //        acBlkTblRec.AppendEntity(dim);
+        //        acTrans.AddNewlyCreatedDBObject(dim, true);
+
+        //        // Commit the changes and dispose of the transaction
+        //        acTrans.Commit();
+        //    }
+        //}
 
 
         [CommandMethod("D1")]

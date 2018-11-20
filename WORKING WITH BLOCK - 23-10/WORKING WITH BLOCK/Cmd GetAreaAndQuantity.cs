@@ -227,6 +227,238 @@ namespace myCustomCmds
         }
 
 
+
+
+        [CommandMethod("DFT")]
+        public static void drawFromText()
+        {
+            if (!CheckLicense.licensed) return;
+
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
+                double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
+
+
+                // Create a TypedValue array to define the filter criteria
+                TypedValue[] acTypValAr = new TypedValue[2];
+                acTypValAr.SetValue(new TypedValue((int)DxfCode.Start, "TEXT"), 0);
+                acTypValAr.SetValue(new TypedValue((int)DxfCode.LayerName, "TEXT_QUANTITY"), 1);
+
+                // Assign the filter criteria to a SelectionFilter object
+                SelectionFilter acSelFtr = new SelectionFilter(acTypValAr);
+
+                // Request for objects to be selected in the drawing area
+                PromptSelectionResult acSSPrompt = acDoc.Editor.GetSelection(acSelFtr);
+
+                // If the prompt status is OK, objects were selected
+                if (acSSPrompt.Status == PromptStatus.OK)
+                {
+                    SelectionSet acSSet = acSSPrompt.Value;
+                    if (acSSet == null) return;
+
+                    List<string> myListTextValid = new List<string>();
+
+                    foreach (SelectedObject acSSObj in acSSet)
+                    {
+                        DBText myTextItem = acSSObj.ObjectId.GetObject(OpenMode.ForWrite) as DBText;
+
+                        int numberOrChar = myTextItem.TextString.Count(f => f == '|');
+                        if (numberOrChar == 4)
+                        {
+                            myListTextValid.Add(myTextItem.TextString);
+                        }
+                        continue;
+                    }
+
+                    // lay duoc danh sach cac text phu hop
+                    
+                    // Duyet tung phan tu trong danh sach vua tao duoc, dem so phan tu de lay so luong
+
+                    Dictionary<string, int> myDicTextName = new Dictionary<string, int>();
+
+                    foreach (string fullNameText in myListTextValid)
+                    {
+                        if (myDicTextName.ContainsKey(fullNameText))
+                        {
+                            myDicTextName[fullNameText]++;
+                        }
+                        else
+                        {
+                            myDicTextName.Add(fullNameText, 1);
+                        }
+                    }
+
+                    
+                    // Chọn 1 diem tren man hinh de pick insert
+                    PromptPointResult pPtRes;
+                    PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+                    // Prompt for the start point
+                    pPtOpts.Message = "\nPick a point to place Details: ";
+                    pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+
+                    // Exit if the user presses ESC or cancels the command
+                    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+                    Point3d ptPositionInsert = pPtRes.Value;
+
+
+
+                    // Get info from text
+                    foreach (KeyValuePair<string, int> myPlateName in myDicTextName)
+                    {
+
+                        string nameTextToList = myPlateName.Key;
+                        List<string> myDetailText = nameTextToList.Split('|').ToList();
+
+                        // Height
+                        double height = Convert.ToInt32(myDetailText[2]);
+
+                        // Width
+                        double width = Convert.ToInt32(myDetailText[1]);
+
+                        //Thickness
+                        double thickness = Convert.ToInt32(myDetailText[3]);
+
+                        //Material
+                        string myTitle = nameTextToList + "\n" + "SL: " + myPlateName.Value;
+
+                        // Draw detail plate and view of plate
+                        CmdDetailParts.drawDetailFromText(ptPositionInsert, width, height, thickness, myTitle);
+
+                        // Chuyen ptPoint sang diem moi
+
+                        ptPositionInsert = new Point3d(ptPositionInsert.X + 60 * scaleCurrentDim +width+thickness+ 1000, ptPositionInsert.Y, 0);
+
+                        //string lineToWrite = String.Format("{0},{1},{2},{3},{4},{5}", myPlateName.Key, myDetailText[1], myDetailText[2], myDetailText[3], myPlateName.Value, myDetailText[4]);
+
+                    }
+
+                    acTrans.Commit();
+                    return;
+                }
+
+            }
+
+        }
+
+
+
+        //[CommandMethod("DFF")]
+        public static void drawFromCSVFile(Dictionary<string, int> myDicTextName)
+        {
+            if (!CheckLicense.licensed) return;
+
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Database acCurDb = acDoc.Database;
+
+            using (DocumentLock docLock = acDoc.LockDocument())
+            {
+
+                // Start a transaction
+                using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+                {
+
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+                    double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
+
+
+                    // lay duoc danh sach cac text phu hoc
+                    // Duyet tung phan tu trong danh sach vua tao duoc, dem so phan tu de lay so luong
+
+
+                    // Chọn 1 diem tren man hinh de pick insert
+                    PromptPointResult pPtRes;
+                    PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+                    // Prompt for the start point
+                    pPtOpts.Message = "\nPick a point to place Details: ";
+                    pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+
+                    // Exit if the user presses ESC or cancels the command
+                    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+                    Point3d ptPositionInsert = pPtRes.Value;
+
+
+                    // Get info from text
+                    foreach (KeyValuePair<string, int> myPlateName in myDicTextName)
+                    {
+
+                        string nameTextToList = myPlateName.Key;
+                        List<string> myDetailText = nameTextToList.Split('|').ToList();
+
+                        // Height
+                        double height = Convert.ToInt32(myDetailText[2]);
+
+                        // Width
+                        double width = Convert.ToInt32(myDetailText[1]);
+
+                        //Thickness
+                        double thickness = Convert.ToInt32(myDetailText[3]);
+
+                        //Material
+                        string myTitle = nameTextToList + "\n" + "SL: " + myPlateName.Value;
+
+                        // Draw detail plate and view of plate
+                        CmdDetailParts.drawDetailFromText(ptPositionInsert, width, height, thickness, myTitle);
+
+                        // Chuyen ptPoint sang diem moi
+
+                        ptPositionInsert = new Point3d(ptPositionInsert.X + 60 * scaleCurrentDim + width + thickness + 1000, ptPositionInsert.Y, 0);
+
+                        //string lineToWrite = String.Format("{0},{1},{2},{3},{4},{5}", myPlateName.Key, myDetailText[1], myDetailText[2], myDetailText[3], myPlateName.Value, myDetailText[4]);
+
+                    }
+
+                    acTrans.Commit();
+                    return;
+                }
+
+            }
+        }
+       
+
         [CommandMethod("ETQ")]
         public static void eraseQuantityText()
         {

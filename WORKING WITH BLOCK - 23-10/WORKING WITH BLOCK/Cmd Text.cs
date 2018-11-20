@@ -149,104 +149,106 @@ namespace myCustomCmds
             Document acCurDoc = Application.DocumentManager.MdiActiveDocument;
             Database acCurDb = acCurDoc.Database;
 
-
-            /// Scale
-            PromptDoubleOptions pIntOpts = new PromptDoubleOptions("");
-            pIntOpts.Message = "\nEnter Scale factor: ";
-            pIntOpts.DefaultValue = 1;
-
-            PromptDoubleResult pIntRes = acCurDoc.Editor.GetDouble(pIntOpts);
-            pIntOpts.AllowZero = false;
-            pIntOpts.AllowNegative = false;
-
-            if (pIntRes.Value == null) return;
-
-            double scaleFactorCallout = pIntRes.Value;
-
-
-            string myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- 1: " + scaleFactorCallout;
-
-            if (scaleFactorCallout < 1)
+            using (DocumentLock docLock = acCurDoc.LockDocument())
             {
-                int newScale = Convert.ToInt32(1 / scaleFactorCallout);
-                myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- " + newScale + ":1";
-            }
+                /// Scale
+                PromptDoubleOptions pIntOpts = new PromptDoubleOptions("");
+                pIntOpts.Message = "\nEnter Scale factor: ";
+                pIntOpts.DefaultValue = 1;
 
-            else
-            {
-                myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- 1: " + scaleFactorCallout;
-            }
+                PromptDoubleResult pIntRes = acCurDoc.Editor.GetDouble(pIntOpts);
+                pIntOpts.AllowZero = false;
+                pIntOpts.AllowNegative = false;
 
+                if (pIntRes.Value == null) return;
 
-            // Start a transaction
-            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
-            {
-
-                BlockTable acBlkTbl;
-                BlockTableRecord acBlkTblRec;
-
-                // Open Model space for write
-                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
-                                                OpenMode.ForRead) as BlockTable;
-
-                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
-                {
-                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
-                                                OpenMode.ForWrite) as BlockTableRecord;
-                }
-                else
-                {
-                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
-                            OpenMode.ForWrite) as BlockTableRecord;
-                }
-
-                // Create a multiline text object
-
-                // Set point origin block
-                PromptPointResult pPtRes;
-                PromptPointOptions pPtOpts = new PromptPointOptions("");
-
-                // Prompt for the start point
-                pPtOpts.Message = "\nPick Title Text Place: ";
-                pPtRes = acCurDoc.Editor.GetPoint(pPtOpts);
-                Point3d ptOrigin = pPtRes.Value;
-
-                // Exit if the user presses ESC or cancels the command
-                if (pPtRes.Status == PromptStatus.Cancel) return;
+                double scaleFactorCallout = pIntRes.Value;
 
 
-                using (MText acMText = new MText())
-                {
-                    acMText.SetAttachmentMovingLocation(AttachmentPoint.MiddleCenter);
-                    acMText.Location = ptOrigin;
-                    acMText.Contents = myTitleText;
-                    acMText.TextHeight = 3.5 * scaleFactorCallout;
-
-                    acMText.Layer = "TITLE_BLOCK";
-
-                    acBlkTblRec.AppendEntity(acMText);
-                    acTrans.AddNewlyCreatedDBObject(acMText, true);
-                }
-                // Save the changes and dispose of the transaction
-                acTrans.Commit();
-
-                //Create Dim
-                string myNameDimStyle = "1-1";
-
+                string myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- 1: " + scaleFactorCallout;
 
                 if (scaleFactorCallout < 1)
                 {
                     int newScale = Convert.ToInt32(1 / scaleFactorCallout);
-                    myNameDimStyle = newScale + "-1";
+                    myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- " + newScale + ":1";
                 }
 
                 else
                 {
-                    myNameDimStyle = "1-" + scaleFactorCallout;
+                    myTitleText = "\\L" + myTitle.ToUpper() + "\\l" + "\nTL- 1: " + scaleFactorCallout;
                 }
 
-                CmdDim.ChangeDimStyle(myNameDimStyle);
 
+                // Start a transaction
+                using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+                {
+
+                    BlockTable acBlkTbl;
+                    BlockTableRecord acBlkTblRec;
+
+                    // Open Model space for write
+                    acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                    OpenMode.ForRead) as BlockTable;
+
+                    if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                    OpenMode.ForWrite) as BlockTableRecord;
+                    }
+                    else
+                    {
+                        acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                                OpenMode.ForWrite) as BlockTableRecord;
+                    }
+
+                    // Create a multiline text object
+
+                    // Set point origin block
+                    PromptPointResult pPtRes;
+                    PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+                    // Prompt for the start point
+                    pPtOpts.Message = "\nPick Title Text Place: ";
+                    pPtRes = acCurDoc.Editor.GetPoint(pPtOpts);
+                    Point3d ptOrigin = pPtRes.Value;
+
+                    // Exit if the user presses ESC or cancels the command
+                    if (pPtRes.Status == PromptStatus.Cancel) return;
+
+
+                    using (MText acMText = new MText())
+                    {
+                        acMText.SetAttachmentMovingLocation(AttachmentPoint.MiddleCenter);
+                        acMText.Location = ptOrigin;
+                        acMText.Contents = myTitleText;
+                        acMText.TextHeight = 3.5 * scaleFactorCallout;
+
+                        acMText.Layer = "TITLE_BLOCK";
+
+                        acBlkTblRec.AppendEntity(acMText);
+                        acTrans.AddNewlyCreatedDBObject(acMText, true);
+                    }
+                    // Save the changes and dispose of the transaction
+                    acTrans.Commit();
+
+                    //Create Dim
+                    string myNameDimStyle = "1-1";
+
+
+                    if (scaleFactorCallout < 1)
+                    {
+                        int newScale = Convert.ToInt32(1 / scaleFactorCallout);
+                        myNameDimStyle = newScale + "-1";
+                    }
+
+                    else
+                    {
+                        myNameDimStyle = "1-" + scaleFactorCallout;
+                    }
+
+                    CmdDim.ChangeDimStyle(myNameDimStyle);
+
+                }
             }
         }
 
@@ -331,7 +333,7 @@ namespace myCustomCmds
 
 
 
-            CreateText(myTitle, "TEXT TITLE", myTextPlace, acCurDb.GetDimstyleData().Dimscale, acCurDb.Textsize);
+            CreateText(myTitle, "TEXT_TITLE", myTextPlace, acCurDb.GetDimstyleData().Dimscale, acCurDb.Textsize);
         }
 
 

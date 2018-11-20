@@ -47,16 +47,20 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cmd Form01.cs" />
     <Compile Include="Encrypting Decrypting.cs" />
     <Compile Include="Check License.cs" />
     <Compile Include="Cmd Plot - Copy.cs" />
@@ -74,7 +78,18 @@
     <Compile Include="Cmd DIM.cs" />
     <Compile Include="Main - Copy.cs" />
     <Compile Include="Cmd Get Details.cs" />
+    <Compile Include="myForm01.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="myForm01.Designer.cs">
+      <DependentUpon>myForm01.cs</DependentUpon>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="myForm01.resx">
+      <DependentUpon>myForm01.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

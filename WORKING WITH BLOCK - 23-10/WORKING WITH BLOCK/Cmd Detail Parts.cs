@@ -55,7 +55,7 @@ namespace myCustomCmds
 
         //HAM Poly:
         [CommandMethod("PP")]
-        public static void abc()
+        public static void drawDetailFromPoly()
         {
 
             if (!CheckLicense.licensed) return;
@@ -146,6 +146,9 @@ namespace myCustomCmds
 
                 myCloneSection.TransformBy(Matrix3d.Displacement(myVectorMove));
 
+                //Dim clone polyline
+                DimPoly.DimPolyLineByObject(myCloneSection);
+
 
                 // Kiem tra chieu polyline de  of set
                 double PolyArea = myCloneSection.GetArea();
@@ -160,15 +163,15 @@ namespace myCustomCmds
                 }
 
 
-                DBObjectCollection myObjectsOffset = myCloneSection.GetOffsetCurves(offsetDistance);
-                foreach (Entity myObject in myObjectsOffset)
-                {
-                    acDoc.Editor.WriteMessage("\n{0} : la 1 ten class", myObject.GetRXClass().DxfName);
+                //DBObjectCollection myObjectsOffset = myCloneSection.GetOffsetCurves(offsetDistance);
+                //foreach (Entity myObject in myObjectsOffset)
+                //{
+                //    acDoc.Editor.WriteMessage("\n{0} : la 1 ten class", myObject.GetRXClass().DxfName);
 
-                    acBlkTblRec.AppendEntity(myObject);
-                    acTrans.AddNewlyCreatedDBObject(myObject, true);
+                //    acBlkTblRec.AppendEntity(myObject);
+                //    acTrans.AddNewlyCreatedDBObject(myObject, true);
 
-                }
+                //}
 
 
 
@@ -187,12 +190,11 @@ namespace myCustomCmds
 
                 // Nhap kich thuoc tam
                double thickness = 0;
-
                if (thickness <= 0)
                {
                    PromptDoubleOptions pIntOpts = new PromptDoubleOptions("");
                    pIntOpts.Message = "\nEnter thickness: ";
-                   pIntOpts.DefaultValue = 100;
+                   //pIntOpts.DefaultValue = 100;
 
                    PromptDoubleResult pIntRes = acDoc.Editor.GetDouble(pIntOpts);
 
@@ -223,8 +225,11 @@ namespace myCustomCmds
                        myPlate2d.AddVertexAt(0, new Point2d(myBasePointPlate.X, myBasePointPlate.Y + deltaY), 0, 0, 0);
                        myPlate2d.Closed = true;
 
+
                        acBlkTblRec.AppendEntity(myPlate2d);
                        acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+
+                       DimPoly.DimPolyLineByObject(myPlate2d);
                    }   
                }
                else if (deltaX >= 2 * deltaY) // Ve phuong doc
@@ -242,6 +247,8 @@ namespace myCustomCmds
 
                        acBlkTblRec.AppendEntity(myPlate2d);
                        acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+
+                       DimPoly.DimPolyLineByObject(myPlate2d);
                    }
                }
                else // Ve ca 2 phuong
@@ -258,6 +265,8 @@ namespace myCustomCmds
 
                        acBlkTblRec.AppendEntity(myPlate2d);
                        acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+
+                       DimPoly.DimPolyLineByObject(myPlate2d);
                    }
 
                    myBasePointPlate = new Point3d(myCloneSection.GeometricExtents.MaxPoint.X, myCloneSection.GeometricExtents.MaxPoint.Y + scaleCurrentDim * 30, 0);
@@ -272,6 +281,8 @@ namespace myCustomCmds
 
                        acBlkTblRec.AppendEntity(myPlate2d);
                        acTrans.AddNewlyCreatedDBObject(myPlate2d, true);
+
+                       DimPoly.DimPolyLineByObject(myPlate2d);
                    }
                }
 
@@ -283,6 +294,178 @@ namespace myCustomCmds
 
         }
         }
+
+
+
+        //HAM Poly:
+        //[CommandMethod("DDBD")]
+        public static void drawDetailFromText(Point3d myPointPlace, double width, double height, double thickness, string Title)
+        {
+
+            //if (!CheckLicense.licensed) return;
+
+            CmdLayer.createALayerByName("SECTION_HATCH");
+            CmdLayer.createALayerByName("TEXT_TITLE");
+
+            // Get the current document and database
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+                // Get Dim Scale to set height for text and scale of drawing
+                double scaleCurrentDim = acCurDb.GetDimstyleData().Dimscale;
+
+                // Ve cac hinh chieu tu cac kich thuoc da cho
+
+                Point3d myPointPlaceSec = new Point3d();
+                // Ve chieu dung
+                using (Polyline drawPlateArea = new Polyline())
+                {
+                    drawPlateArea.AddVertexAt(0, new Point2d(myPointPlace.X, myPointPlace.Y), 0, 0, 0);
+                    drawPlateArea.AddVertexAt(0, new Point2d(myPointPlace.X + width, myPointPlace.Y), 0, 0, 0);
+                    drawPlateArea.AddVertexAt(0, new Point2d(myPointPlace.X + width, myPointPlace.Y + height), 0, 0, 0);
+                    drawPlateArea.AddVertexAt(0, new Point2d(myPointPlace.X, myPointPlace.Y + height), 0, 0, 0);
+                    drawPlateArea.Closed = true;
+
+                    DimPoly.DimPolyLineByObject(drawPlateArea);
+
+                    // Doi vi tri chen diem
+                    myPointPlaceSec = new Point3d(myPointPlace.X + width + scaleCurrentDim * 30, myPointPlace.Y, 0);
+
+                    acBlkTblRec.AppendEntity(drawPlateArea);
+                    acTrans.AddNewlyCreatedDBObject(drawPlateArea, true);
+                }
+
+                // Ve chieu ben
+
+                using (Polyline drawPlateSec = new Polyline())
+                {
+                    drawPlateSec.AddVertexAt(0, new Point2d(myPointPlaceSec.X, myPointPlaceSec.Y), 0, 0, 0);
+                    drawPlateSec.AddVertexAt(0, new Point2d(myPointPlaceSec.X + thickness, myPointPlaceSec.Y), 0, 0, 0);
+                    drawPlateSec.AddVertexAt(0, new Point2d(myPointPlaceSec.X + thickness, myPointPlaceSec.Y + height), 0, 0, 0);
+                    drawPlateSec.AddVertexAt(0, new Point2d(myPointPlaceSec.X, myPointPlaceSec.Y + height), 0, 0, 0);
+                    drawPlateSec.Closed = true;
+
+
+
+                    acBlkTblRec.AppendEntity(drawPlateSec);
+                    acTrans.AddNewlyCreatedDBObject(drawPlateSec, true);
+
+
+                    // Them hatch, ve dim
+                    DimPoly.DimPolyLineByObject(drawPlateSec);
+
+
+                    ObjectIdCollection acObjIdColl = new ObjectIdCollection();
+                    acObjIdColl.Add(drawPlateSec.ObjectId);
+
+                    using (Hatch acHatch = new Hatch())
+                    {
+                        acBlkTblRec.AppendEntity(acHatch);
+                        acTrans.AddNewlyCreatedDBObject(acHatch, true);
+
+                        // Set the properties of the hatch object
+                        // Associative must be set after the hatch object is appended to the 
+                        // block table record and before AppendLoop
+
+                        acHatch.SetHatchPattern(HatchPatternType.PreDefined, "ANSI35");
+                        acHatch.Associative = true;
+                        acHatch.PatternScale = 20;
+                        acHatch.ColorIndex = 8;
+                        acHatch.AppendLoop(HatchLoopTypes.Outermost, acObjIdColl);
+                        acHatch.EvaluateHatch(true);
+                        acHatch.Layer = "SECTION_HATCH";
+                    }
+                }
+
+                Point3d myPointPlaceTitle = new Point3d(myPointPlace.X+width/2, myPointPlace.Y+height+20*scaleCurrentDim,0);
+                // Them Title
+                CmdText.CreateText(Title, "TEXT_TITLE", myPointPlaceTitle, scaleCurrentDim, 3.5);
+
+
+
+            acTrans.Commit();
+            }
+
+        }
+        
+
+        [CommandMethod("TestDDBT")]
+        public static void test2()
+        {
+            
+            if (!CheckLicense.licensed) return;
+
+            // Get the current document and database
+            Document acDoc = Application.DocumentManager.MdiActiveDocument;
+            Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
+            Database acCurDb = acDoc.Database;
+
+            // Start a transaction
+            using (Transaction acTrans = acCurDb.TransactionManager.StartTransaction())
+            {
+
+                BlockTable acBlkTbl;
+                BlockTableRecord acBlkTblRec;
+
+                // Open Model space for write
+                acBlkTbl = acTrans.GetObject(acCurDb.BlockTableId,
+                                                OpenMode.ForRead) as BlockTable;
+
+                if (Application.GetSystemVariable("CVPORT").ToString() != "1")
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.ModelSpace],
+                                                OpenMode.ForWrite) as BlockTableRecord;
+                }
+                else
+                {
+                    acBlkTblRec = acTrans.GetObject(acBlkTbl[BlockTableRecord.PaperSpace],
+                            OpenMode.ForWrite) as BlockTableRecord;
+                }
+
+
+
+                // Chọn 1 diem tren man hinh de pick insert
+                PromptPointResult pPtRes;
+                PromptPointOptions pPtOpts = new PromptPointOptions("");
+
+                // Prompt for the start point
+                pPtOpts.Message = "\nPick a point to place CallOut: ";
+                pPtRes = acDoc.Editor.GetPoint(pPtOpts);
+
+                // Exit if the user presses ESC or cancels the command
+                if (pPtRes.Status == PromptStatus.Cancel) return;
+
+                Point3d ptPositionInsert = pPtRes.Value;
+
+                drawDetailFromText(ptPositionInsert, 1000, 250, 25, "Hello World");
+
+                acTrans.Commit();
+            }
+        }
+
+
 
         static int sortByY(Point3d a, Point3d b)
         {
