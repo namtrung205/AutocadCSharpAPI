@@ -1,0 +1,61 @@
+﻿<Window x:Class="Telerik_UI.MainWindow"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:telerik="http://schemas.telerik.com/2008/xaml/presentation"
+                Title="MainWindow" Height="350" Width="403">
+    <Window.Resources>
+        <DataTemplate x:Key="dateCtrl">
+            <telerik:RadDateTimePicker/>
+        </DataTemplate>
+
+        <DataTemplate x:Key="myDataTemplate">
+            <DatePicker Name="dtPicker" SelectedDate="{Binding Established, Mode=TwoWay}"></DatePicker>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <StackPanel>
+            <telerik:RadGridView Name="radGridView1" 
+                     AutoGenerateColumns="False" SelectedItem="{Binding SelectedClubItem}" ItemsSource="{Binding ListClubItems, Mode=TwoWay}">
+                <telerik:RadGridView.Columns>
+                    <telerik:GridViewDataColumn Header="Name" 
+                                    DataMemberBinding="{Binding Name}" />
+                    <telerik:GridViewDataColumn Header="Stadium" 
+                                    DataMemberBinding="{Binding StadiumCapacity}" 
+                                    DataFormatString="{}{0:N0}" />
+                    <!--<telerik:GridViewDataColumn Header="Established" 
+                                    DataMemberBinding="{Binding Established}">
+                        --><!--<telerik:GridViewDataColumn.CellEditTemplate>
+                            <DataTemplate>
+                                <telerik:RadDateTimePicker SelectedValue="{Binding Established, Mode=TwoWay}"/>
+                            </DataTemplate>
+                        </telerik:GridViewDataColumn.CellEditTemplate>--><!--
+                    </telerik:GridViewDataColumn>-->
+                </telerik:RadGridView.Columns>
+            </telerik:RadGridView>
+            <telerik:RadButton Command="{Binding AddField}" CommandParameter="{Binding}" Content="Add Date" Name="AddBtn">
+                
+            </telerik:RadButton>
+
+            <ListView Name="myListView">
+                <ListView.View>
+                    <GridView>
+                        <GridView.Columns>
+                            <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}"/>
+                            <GridViewColumn Header="Stadium" DisplayMemberBinding="{Binding StadiumCapacity}"/>
+                            <GridViewColumn Header="Established" CellTemplate="{StaticResource myDataTemplate}">
+                            </GridViewColumn>
+                        </GridView.Columns>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+            
+            <Button Click="Button_Click">
+                CLick
+            </Button>
+            
+        </StackPanel>
+        
+
+    </Grid>
+</Window>
