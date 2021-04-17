@@ -173,15 +173,10 @@ namespace AutoCadCShapAddin
         [CommandMethod("DADL2MF2")] //Detach all layout to multiFiles
         public static void DetachAllLayoutOfDrawingsToMultiFiles2()
         {
-
-            Database currentDatabase = HostApplicationServices.WorkingDatabase;
-
-
             Database externalDatabase = new Database(false, false);
 
             externalDatabase.ReadDwgFile(@"D:\OUTSCZ\210404.dwg", FileOpenMode.OpenForReadAndAllShare, true, "");
 
-            HostApplicationServices.WorkingDatabase = externalDatabase;
 
             String outPutFolder = "";
             //Popup Select folder
@@ -204,7 +199,7 @@ namespace AutoCadCShapAddin
 
             using (Transaction tr = externalDatabase.TransactionManager.StartTransaction())
             {
-                DBDictionary layoutDic = tr.GetObject(externalDatabase.LayoutDictionaryId, OpenMode.ForWrite, false) as DBDictionary;
+                DBDictionary layoutDic = tr.GetObject(externalDatabase.LayoutDictionaryId, OpenMode.ForRead, false) as DBDictionary;
                 foreach (DBDictionaryEntry entry in layoutDic)
                 {
                     ObjectId layoutId = entry.Value;
@@ -217,52 +212,42 @@ namespace AutoCadCShapAddin
                 }
             }
 
-            ObjectId modelSpaceId = LayoutManager.Current.GetLayoutId("Model");
-
             for (int i = 0; i < listNamLayout.Count; i++)
             {
                 String currentLayoutName = listNamLayout[i];
-                using (Transaction tr = externalDatabase.TransactionManager.StartTransaction())
+                List<String> listNamLayoutRemove = new List<string>();
+                //remove all other layout
+                foreach (String otherLayoutName in listNamLayout)
                 {
-                    //remove all other layout
-                    foreach (String otherLayoutName in listNamLayout)
+                    if (otherLayoutName != currentLayoutName)
                     {
-                        if (otherLayoutName != currentLayoutName)
-                        {
-
-                            LayoutManager.Current.SetCurrentLayoutId(modelSpaceId);
-                            LayoutManager.Current.DeleteLayout(otherLayoutName);
-                            LayoutManager.Current.SetCurrentLayoutId(modelSpaceId);
-                        }
-                    }
-
-                    using (DocumentLock dLock = Application.DocumentManager.MdiActiveDocument.LockDocument())
-                    {
-                        string tFilename = String.Format("{0}\\{1}.dwg", outPutFolder, currentLayoutName);
-                        Autodesk.AutoCAD.DatabaseServices.DwgVersion tVersion = Autodesk.AutoCAD.DatabaseServices.DwgVersion.Current;
-                        Application.DocumentManager.MdiActiveDocument.Database.SaveAs(tFilename, tVersion);
-                    }
-                    tr.Abort();
+                        listNamLayoutRemove.Add(otherLayoutName);
+                    } 
                 }
+                DeleteLayout(@"D:\OUTSCZ\210404.dwg", listNamLayoutRemove, String.Format("{0}\\{1}.dwg", outPutFolder, currentLayoutName));
             }
-
-            HostApplicationServices.WorkingDatabase = currentDatabase;
         }
 
 
-        private string DeleteLayout(string fileName, string layoutName)
+        private static string DeleteLayout(string fileName, List<string> layoutNameList, string newFileName)
         {
             Database currentDatabase = HostApplicationServices.WorkingDatabase;
             try
             {
+
                 using (Database targetDatabase = new Database(false, true))
                 {
                     targetDatabase.ReadDwgFile(fileName, System.IO.FileShare.ReadWrite, false, null);
                     HostApplicationServices.WorkingDatabase = targetDatabase;
                     LayoutManager lm = LayoutManager.Current;
-                    lm.DeleteLayout(layoutName);
-                    targetDatabase.SaveAs(fileName, DwgVersion.Current);
+                    foreach (String layoutName in layoutNameList)
+                    {
+                        lm.DeleteLayout(layoutName);
+                    }
+
+                    targetDatabase.SaveAs(newFileName, DwgVersion.Current);
                 }
+
                 return "Delete layout succeeded";
             }
             catch (System.Exception ex)
@@ -276,4 +261,6 @@ namespace AutoCadCShapAddin
         }
 
     }
+
+
 }
