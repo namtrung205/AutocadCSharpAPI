@@ -14,6 +14,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using System.IO;
+
 
 
 namespace AutoCadCShapAddin
@@ -260,7 +262,27 @@ namespace AutoCadCShapAddin
             }
         }
 
+
+        public static void OpenAndActiveDrawing(string strFileName)
+        {
+            DocumentCollection acDocMgr = Application.DocumentManager;
+            if (File.Exists(strFileName))
+            {
+                Document justDocument = acDocMgr.Open(strFileName, false);
+
+            }
+            else
+            {
+                acDocMgr.MdiActiveDocument.Editor.WriteMessage("File " + strFileName + " does not exist.");
+            }
+
+
+
+        }
     }
-
-
 }
+
+
+
+
+ 
