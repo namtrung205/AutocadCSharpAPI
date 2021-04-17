@@ -1,0 +1,3 @@
+D:\PRIVATE\AutocadCSharpAPI-master\AutocadCSharpAPI-master\WORKING WITH BLOCK 20-11-2019\WORKING WITH BLOCK\obj\Release\myForm.myForm01.resources
+D:\PRIVATE\AutocadCSharpAPI-master\AutocadCSharpAPI-master\WORKING WITH BLOCK 20-11-2019\WORKING WITH BLOCK\obj\Release\WORKING WITH BLOCK.csproj.GenerateResource.cache
+D:\PRIVATE\AutocadCSharpAPI-master\AutocadCSharpAPI-master\WORKING WITH BLOCK 20-11-2019\WORKING WITH BLOCK\obj\Release\WORKING WITH BLOCK.csproj.CoreCompileInputs.cache
