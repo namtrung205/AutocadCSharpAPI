@@ -14,6 +14,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using System.IO;
+
 
 
 namespace AutoCadCShapAddin
@@ -89,21 +91,32 @@ namespace AutoCadCShapAddin
             }
         }
 
-        [CommandMethod("DADL2MF")] //Detach all layout to multiFiles
-        public static void DetachAllLayoutOfDrawingsToMultiFiles()
+
+        [CommandMethod("DAFL2MFUI", CommandFlags.Session)] //Detach all layout to multiFiles
+        public static void DetachAllLayoutOfFolderToMultiFilesUI()
         {
+            #region Select Files Input And OutPut Folder
 
-            Document acDoc = Application.DocumentManager.MdiActiveDocument;
-            Application.DocumentManager.MdiActiveDocument.Database.Orthomode = false;
-            Database acCurDb = acDoc.Database;
+            //Select multi Input File
+            string[] listFileInput;
+            System.Windows.Forms.OpenFileDialog selectMultiFileDialog = new System.Windows.Forms.OpenFileDialog();
 
+            selectMultiFileDialog.Multiselect = true;
 
-            Database externalDatabase = new Database(false, false);
+            System.Windows.Forms.DialogResult resSelectMultiFiles = selectMultiFileDialog.ShowDialog();
+            if (resSelectMultiFiles == System.Windows.Forms.DialogResult.OK)
+            {
+                listFileInput = selectMultiFileDialog.FileNames;
 
-            externalDatabase.ReadDwgFile(@"D:\OUTSCZ\210404.dwg", FileOpenMode.OpenForReadAndAllShare, true, "");
+                if (listFileInput == null) //nothing selected
+                    return;
+            }
+            else
+            {
+                return;
+            }
 
-            HostApplicationServices.WorkingDatabase = externalDatabase;
-
+            //Select outPut Folder
             String outPutFolder = "";
             //Popup Select folder
             System.Windows.Forms.FolderBrowserDialog folderDlg = new System.Windows.Forms.FolderBrowserDialog();
@@ -118,151 +131,198 @@ namespace AutoCadCShapAddin
             {
                 return;
             }
+            #endregion
 
 
-            //Get all name of layout push to a list
-            List<String> listNamLayout = new List<string>();
-
-            using (Transaction tr = externalDatabase.TransactionManager.StartTransaction())
+            foreach (var fileName in listFileInput)
             {
-                DBDictionary layoutDic = tr.GetObject(externalDatabase.LayoutDictionaryId, OpenMode.ForWrite, false) as DBDictionary;
-                foreach (DBDictionaryEntry entry in layoutDic)
-                {
-                    ObjectId layoutId = entry.Value;
-                    Layout layout = tr.GetObject(layoutId, OpenMode.ForWrite) as Layout;
-                    String layoutName = layout.LayoutName;
-                    if (layoutName != "Model")
-                    {
-                        listNamLayout.Add(layoutName);
-                    }
-                }
-            }
+                Application.DocumentManager.CloseAll();
 
-            ObjectId modelSpaceId = LayoutManager.Current.GetLayoutId("Model");
+                Document acDoc = Application.DocumentManager.Open(fileName, false);
+                Application.DocumentManager.MdiActiveDocument = acDoc;
 
-            for (int i = 0; i < listNamLayout.Count; i++)
-            {
-                String currentLayoutName = listNamLayout[i];
-                using (Transaction tr = externalDatabase.TransactionManager.StartTransaction())
+                Database acCurDb = acDoc.Database;
+                HostApplicationServices.WorkingDatabase = acCurDb;
+
+                //Get all name of layout push to a list
+                List<String> listNamLayout = new List<string>();
+
+                using (Transaction tr = acCurDb.TransactionManager.StartTransaction())
                 {
-                    //remove all other layout
-                    foreach (String otherLayoutName in listNamLayout)
+                    DBDictionary layoutDic = tr.GetObject(acCurDb.LayoutDictionaryId, OpenMode.ForRead, false) as DBDictionary;
+                    foreach (DBDictionaryEntry entry in layoutDic)
                     {
-                        if (otherLayoutName != currentLayoutName)
+                        ObjectId layoutId = entry.Value;
+                        Layout layout = tr.GetObject(layoutId, OpenMode.ForRead) as Layout;
+                        String layoutName = layout.LayoutName;
+                        if (layoutName != "Model")
                         {
-
-                            LayoutManager.Current.SetCurrentLayoutId(modelSpaceId);
-                            LayoutManager.Current.DeleteLayout(otherLayoutName);
-                            LayoutManager.Current.SetCurrentLayoutId(modelSpaceId);
+                            listNamLayout.Add(layoutName);
                         }
                     }
+                }
 
+                for (int i = 0; i < listNamLayout.Count; i++)
+                {
                     using (DocumentLock dLock = Application.DocumentManager.MdiActiveDocument.LockDocument())
                     {
-                        string tFilename = String.Format("{0}\\{1}.dwg", outPutFolder, currentLayoutName);
-                        Autodesk.AutoCAD.DatabaseServices.DwgVersion tVersion = Autodesk.AutoCAD.DatabaseServices.DwgVersion.Current;
-                        Application.DocumentManager.MdiActiveDocument.Database.SaveAs(tFilename, tVersion);
+                        String currentLayoutName = listNamLayout[i];
+                        using (Transaction tr = acCurDb.TransactionManager.StartTransaction())
+                        {
+                            HostApplicationServices.WorkingDatabase = acCurDb;
+                            //remove all other layout
+                            foreach (String otherLayoutName in listNamLayout)
+                            {
+                                if (otherLayoutName != currentLayoutName && LayoutManager.Current.LayoutExists(otherLayoutName))
+                                {
+                                    LayoutManager.Current.DeleteLayout(otherLayoutName);
+                                }
+                            }
+
+                            string tFilename = String.Format("{0}\\{1}.dwg", outPutFolder, currentLayoutName);
+                            Autodesk.AutoCAD.DatabaseServices.DwgVersion tVersion = Autodesk.AutoCAD.DatabaseServices.DwgVersion.Current;
+                            Application.DocumentManager.MdiActiveDocument.Database.SaveAs(tFilename, tVersion);
+
+                            acCurDb.TransactionManager.QueueForGraphicsFlush();
+                            tr.Abort();
+                        }
                     }
-                    tr.Abort();
                 }
             }
+        }
 
+
+        //Multi Files silient
+        [CommandMethod("DAFL2MF")] //Detach all layout to multiFiles
+        public static void DetachAllLayoutOfFolderToMultiFiles()
+        {
+            #region Select Files Input And OutPut Folder
+
+            //Select multi Input File
+            string[] listFileInput;
+            System.Windows.Forms.OpenFileDialog selectMultiFileDialog = new System.Windows.Forms.OpenFileDialog();
+
+            selectMultiFileDialog.Multiselect = true;
+
+            System.Windows.Forms.DialogResult resSelectMultiFiles =  selectMultiFileDialog.ShowDialog();
+            if (resSelectMultiFiles == System.Windows.Forms.DialogResult.OK) 
+            {
+                listFileInput = selectMultiFileDialog.FileNames;
+
+                if (listFileInput == null) //nothing selected
+                    return;
+            }
+            else
+            {
+                return;
+            }
+
+            //Select outPut Folder
+            String outPutFolder = "";
+            //Popup Select folder
+            System.Windows.Forms.FolderBrowserDialog folderDlg = new System.Windows.Forms.FolderBrowserDialog();
+            folderDlg.ShowNewFolderButton = true;
+            // Show the FolderBrowserDialog.  
+            System.Windows.Forms.DialogResult result = folderDlg.ShowDialog();
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                outPutFolder = folderDlg.SelectedPath;
+            }
+            else
+            {
+                return;
+            }
+            #endregion
+
+
+            //TODO
+            //Open silient or popup CAD
+            //For each file detach layout to files
+
+
+            //Open silent 
+            Database acCurDb = HostApplicationServices.WorkingDatabase;
             HostApplicationServices.WorkingDatabase = acCurDb;
-        }
 
-        [CommandMethod("DADL2MF2")] //Detach all layout to multiFiles
-        public static void DetachAllLayoutOfDrawingsToMultiFiles2()
-        {
-
-            Database currentDatabase = HostApplicationServices.WorkingDatabase;
-
-
-            Database externalDatabase = new Database(false, false);
-
-            externalDatabase.ReadDwgFile(@"D:\OUTSCZ\210404.dwg", FileOpenMode.OpenForReadAndAllShare, true, "");
-
-            HostApplicationServices.WorkingDatabase = externalDatabase;
-
-            String outPutFolder = "";
-            //Popup Select folder
-            System.Windows.Forms.FolderBrowserDialog folderDlg = new System.Windows.Forms.FolderBrowserDialog();
-            folderDlg.ShowNewFolderButton = true;
-            // Show the FolderBrowserDialog.  
-            System.Windows.Forms.DialogResult result = folderDlg.ShowDialog();
-            if (result == System.Windows.Forms.DialogResult.OK)
+            //Each file get list Name layout
+            for (int fileIndex = 0; fileIndex < listFileInput.Length; fileIndex++)
             {
-                outPutFolder = folderDlg.SelectedPath;
-            }
-            else
-            {
-                return;
-            }
+                List<String> listNamLayout = new List<string>();
 
+                String fileName = listFileInput[fileIndex];
 
-            //Get all name of layout push to a list
-            List<String> listNamLayout = new List<string>();
-
-            using (Transaction tr = externalDatabase.TransactionManager.StartTransaction())
-            {
-                DBDictionary layoutDic = tr.GetObject(externalDatabase.LayoutDictionaryId, OpenMode.ForWrite, false) as DBDictionary;
-                foreach (DBDictionaryEntry entry in layoutDic)
+                using (Database exDb = new Database(false, true))
                 {
-                    ObjectId layoutId = entry.Value;
-                    Layout layout = tr.GetObject(layoutId, OpenMode.ForWrite) as Layout;
-                    String layoutName = layout.LayoutName;
-                    if (layoutName != "Model")
+                    exDb.ReadDwgFile(fileName, System.IO.FileShare.ReadWrite, false, "");
+                    using (Transaction tr = exDb.TransactionManager.StartTransaction())
                     {
-                        listNamLayout.Add(layoutName);
-                    }
-                }
-            }
-
-            ObjectId modelSpaceId = LayoutManager.Current.GetLayoutId("Model");
-
-            for (int i = 0; i < listNamLayout.Count; i++)
-            {
-                String currentLayoutName = listNamLayout[i];
-                using (Transaction tr = externalDatabase.TransactionManager.StartTransaction())
-                {
-                    //remove all other layout
-                    foreach (String otherLayoutName in listNamLayout)
-                    {
-                        if (otherLayoutName != currentLayoutName)
+                        DBDictionary layoutDic = tr.GetObject(exDb.LayoutDictionaryId, OpenMode.ForRead, false) as DBDictionary;
+                        foreach (DBDictionaryEntry entry in layoutDic)
                         {
-
-                            LayoutManager.Current.SetCurrentLayoutId(modelSpaceId);
-                            LayoutManager.Current.DeleteLayout(otherLayoutName);
-                            LayoutManager.Current.SetCurrentLayoutId(modelSpaceId);
+                            ObjectId layoutId = entry.Value;
+                            Layout layout = tr.GetObject(layoutId, OpenMode.ForRead) as Layout;
+                            String layoutName = layout.LayoutName;
+                            if (layoutName != "Model")
+                            {
+                                listNamLayout.Add(layoutName);
+                            }
                         }
                     }
 
-                    using (DocumentLock dLock = Application.DocumentManager.MdiActiveDocument.LockDocument())
+                }
+
+                for (int i = 0; i < listNamLayout.Count; i++)
+                {
+                    String currentLayoutName = listNamLayout[i];
+
+                    List<String> removeListLayout = new List<String>();
+
+                    foreach (String item in listNamLayout)
                     {
+                        if(item != currentLayoutName)
+                        {
+                            removeListLayout.Add(item);
+                        }
+                    }
+
+                    //open and Save as by sheet Name
+                    using (Database exDb = new Database(false, true))
+                    {
+                        exDb.ReadDwgFile(fileName, System.IO.FileShare.Read, false, "");
+
                         string tFilename = String.Format("{0}\\{1}.dwg", outPutFolder, currentLayoutName);
                         Autodesk.AutoCAD.DatabaseServices.DwgVersion tVersion = Autodesk.AutoCAD.DatabaseServices.DwgVersion.Current;
-                        Application.DocumentManager.MdiActiveDocument.Database.SaveAs(tFilename, tVersion);
+                        exDb.SaveAs(tFilename, tVersion);
+                        //open file name 
+                        DeleteLayoutsAndSaveAs(tFilename, removeListLayout);
+
+                        Application.DocumentManager.MdiActiveDocument.Editor.WriteMessage("Current import {0} of imported...\n", listNamLayout[i]);
                     }
-                    tr.Abort();
                 }
+
+
+                HostApplicationServices.WorkingDatabase = acCurDb;
             }
 
-            HostApplicationServices.WorkingDatabase = currentDatabase;
         }
 
-
-        private string DeleteLayout(string fileName, string layoutName)
+        private static string DeleteLayoutsAndSaveAs(string fileName, List<string> layoutNameList, string newFileName)
         {
             Database currentDatabase = HostApplicationServices.WorkingDatabase;
             try
             {
-                using (Database targetDatabase = new Database(false, true))
+                using (Database exDatabase = new Database(false, true)) 
                 {
-                    targetDatabase.ReadDwgFile(fileName, System.IO.FileShare.ReadWrite, false, null);
-                    HostApplicationServices.WorkingDatabase = targetDatabase;
+                    exDatabase.ReadDwgFile(fileName, System.IO.FileShare.ReadWrite, false, null);
+                    HostApplicationServices.WorkingDatabase = exDatabase;
                     LayoutManager lm = LayoutManager.Current;
-                    lm.DeleteLayout(layoutName);
-                    targetDatabase.SaveAs(fileName, DwgVersion.Current);
+                    foreach (String layoutName in layoutNameList)
+                    {
+                        lm.DeleteLayout(layoutName);
+                    }
+                    exDatabase.SaveAs(newFileName, DwgVersion.Current);
                 }
+
                 return "Delete layout succeeded";
             }
             catch (System.Exception ex)
@@ -275,5 +335,41 @@ namespace AutoCadCShapAddin
             }
         }
 
+        private static string DeleteLayoutsAndSaveAs(string fileName, List<string> layoutNameList)
+        {
+            Database currentDatabase = HostApplicationServices.WorkingDatabase;
+            try
+            {
+                using (Database exDatabase = new Database(false, false))
+                {
+                    exDatabase.ReadDwgFile(fileName, System.IO.FileShare.ReadWrite, false, null);
+                    HostApplicationServices.WorkingDatabase = exDatabase;
+                    LayoutManager lm = LayoutManager.Current;
+                    foreach (String layoutName in layoutNameList)
+                    {
+                        lm.DeleteLayout(layoutName);
+                    }
+                    exDatabase.SaveAs(fileName, DwgVersion.Current);
+                }
+
+                return "Delete layout succeeded";
+            }
+            catch (System.Exception ex)
+            {
+                return "\nDelete layout failed: " + ex.Message;
+            }
+            finally
+            {
+                HostApplicationServices.WorkingDatabase = currentDatabase;
+            }
+        }
+
+
+
     }
 }
+
+
+
+
+ 
