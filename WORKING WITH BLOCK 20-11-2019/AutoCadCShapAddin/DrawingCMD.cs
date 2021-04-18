@@ -173,7 +173,7 @@ namespace AutoCadCShapAddin
                             //remove all other layout
                             foreach (String otherLayoutName in listNamLayout)
                             {
-                                if (otherLayoutName != currentLayoutName && LayoutManager.Current.LayoutExists(otherLayoutName))
+                                if (otherLayoutName != currentLayoutName)
                                 {
                                     LayoutManager.Current.DeleteLayout(otherLayoutName);
                                 }
@@ -299,7 +299,6 @@ namespace AutoCadCShapAddin
                         Application.DocumentManager.MdiActiveDocument.Editor.WriteMessage("Current import {0} of imported...\n", listNamLayout[i]);
                     }
                 }
-
 
                 HostApplicationServices.WorkingDatabase = acCurDb;
             }
