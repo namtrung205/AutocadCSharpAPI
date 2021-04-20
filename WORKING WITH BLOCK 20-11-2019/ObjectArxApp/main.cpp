@@ -1,16 +1,32 @@
-// Load the common Windows headers
+﻿// Load the common Windows headers
 #include <windows.h>
 // Load the common AutoCAD headers
 #include "arxHeaders.h"
 #include "dbents.h"
 
 #include "Tchar.h"
+#include "acdb.h"
 
 
-
-static void Greetings()
+static void openDWGFile()
 {
-    acutPrintf(_T("\nHello AU 2011!!!"));
+    const ACHAR* pszDrawingName = L"‪D:\M.dwg";
+    try
+    {
+        AcDbDatabase acDb = new AcDbDatabase(false, true);
+        Acad::ErrorStatus es = acDb.readDwgFile(pszDrawingName, AcDbDatabase::kForReadAndWriteNoShare);
+
+        if(es == Acad::ErrorStatus::eOk)
+        {
+            acutPrintf(_T("\nOpen RealDWG Ok...\n"));
+        
+        }
+
+    }
+    catch (const std::exception&)
+    {
+
+    }
 }
 
 
@@ -24,8 +40,7 @@ extern "C" AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCode msg, void* pkt)
             acutPrintf(_T("\nLoading AU 2019 project...\n"));
 
             // Commands to add
-
-            acedRegCmds->addCommand(_T("AUCommands"), _T("Uno"), _T("First"), ACRX_CMD_MODAL, Greetings);
+            acedRegCmds->addCommand(_T("AUCommands"), _T("Uno"), _T("OpenCMD"), ACRX_CMD_MODAL, openDWGFile);
 
 
 

@@ -144,6 +144,10 @@ namespace AutoCadCShapAddin
                 Database acCurDb = acDoc.Database;
                 HostApplicationServices.WorkingDatabase = acCurDb;
 
+                //Bind
+                BindXrefs();
+
+
                 //Get all name of layout push to a list
                 List<String> listNamLayout = new List<string>();
 
@@ -188,6 +192,8 @@ namespace AutoCadCShapAddin
                         }
                     }
                 }
+
+                Application.DocumentManager.CloseAll();
             }
         }
 
@@ -365,6 +371,85 @@ namespace AutoCadCShapAddin
 
 
 
+        //Bind Xref
+        // Define Command "LX"
+        [CommandMethod("LX")]
+        static public void ListXrefsCommand()
+        {
+            // Get a pointer to the active document...
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            // From the active document, get a pointer to the doc's dbase...
+            Database db = doc.Database;
+            // Get a pointer to the editor...
+            Editor ed = doc.Editor;
+
+            // Get the xref graph for the current dbase...
+            XrefGraph xrefGraph = db.GetHostDwgXrefGraph(true);
+            if (xrefGraph.IsEmpty || xrefGraph.NumNodes == 1)
+            {
+                ed.WriteMessage("\nNo xrefs found.");
+                return;     // No xrefs...
+            }
+
+            for (int i = 0; i < xrefGraph.NumNodes; i++)
+            {
+                XrefGraphNode xrefGraphNode = xrefGraph.GetXrefNode(i);
+                if (xrefGraphNode == null)
+                {
+                    ed.WriteMessage("\nError: Failed to get a node on the graph - aborting!");
+                    return;
+                }
+                // Is it the root node, which is the current drawing?
+                // If it IS, then the number of incoming nodes will be 0...
+                if (xrefGraphNode.NumIn == 0)
+                    continue;
+                // Continue if it's truly nested...
+                if (xrefGraphNode.IsNested)
+                    continue;
+
+                ed.WriteMessage("\nXref name: {0}", xrefGraphNode.Name);
+
+                for (int j = 0; j < xrefGraphNode.NumOut; j++)
+                {
+                    XrefGraphNode outgoingNode = xrefGraphNode.Out(j) as XrefGraphNode;
+                    if (outgoingNode != null)
+                        ed.WriteMessage("-->{0}", outgoingNode.Name);
+                }//for
+
+            }//for
+
+        }
+
+
+        public static void BindXrefs()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            Database db = doc.Database;
+            ObjectIdCollection xrefCollection = new ObjectIdCollection();
+            using (XrefGraph xg = db.GetHostDwgXrefGraph(false))
+            {
+                int numOfNodes = xg.NumNodes;
+                for (int cnt = 0; cnt < xg.NumNodes; cnt++)
+                {
+                    XrefGraphNode xNode = xg.GetXrefNode(cnt) as XrefGraphNode;
+                    if (!xNode.Database.Filename.Equals(db.Filename))
+                    {
+                        if (xNode.XrefStatus == XrefStatus.Resolved)
+                        {
+                            xrefCollection.Add(xNode.BlockTableRecordId);
+                        }
+                    }
+                }
+            }
+            if (xrefCollection.Count != 0)
+            {
+                using (DocumentLock dLock = Application.DocumentManager.MdiActiveDocument.LockDocument())
+                {
+                    db.BindXrefs(xrefCollection, true);
+                }
+            }    
+
+        }
     }
 }
 
